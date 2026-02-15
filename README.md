@@ -26,7 +26,14 @@ SemiShape was developed to automate the boilerplate code required in parametric 
 SemiShape was developed entirely within **Google AI Studio**. By leveraging Generative AI, I translated high-level mechanical design requirements into functional application logic. This project serves as a proof-of-concept for AI-driven software development, demonstrating how a self-taught enthusiast can build complex CAD tools by combining structured learning with advanced LLM prompting.
 
 ### Future Vision
-As part of my broader AI Engineering roadmap, I view SemiShape as a long-term testing ground. The ultimate aspirational milestone is to move beyond basic prompting by integrating **RAG (Retrieval-Augmented Generation) via Dify**. This would allow the assistant to "read" the latest build123d documentation in real-time, significantly reducing hallucinations. Although this evolution represents a path potentially lasting several months or years of study, it remains the "North Star" of this experiment.
+As part of my broader AI Engineering roadmap, I view SemiShape as a long-term testing ground. The ultimate aspirational milestone is to move beyond basic prompting by integrating **RAG (Retrieval-Augmented Generation) via Dify**. 
+
+By implementig a **Knowledge Pipeline with vectorized build123d documentation**, the assistant will be able to perform surgical retrieval of exact documentation snippets. This approach is designed to:
+* **Optimize context window usage** (significant token savings compared to long-context prompting).
+* **Increase code precision** by providing the LLM with real-time, authoritative documentation.
+* **Minimize hallucinations** caused by legacy training data.
+
+While this evolution represents a journey of potentially several months or years of study, it remains the "North Star" for this experiment.
 
 ## Core Philosophy
 
