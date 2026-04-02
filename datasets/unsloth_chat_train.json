@@ -1,0 +1,674 @@
+[
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: cs\nJak vytvořím jednoduchý kvádr (box) o rozměrech 80×60×10 mm?"
+      },
+      {
+        "from": "gpt",
+        "value": "V Builder API stačí použít třídu `Box` přímo uvnitř `BuildPart`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(80, 60, 10)\n```\n\n`Box` přijímá délku, šířku a výšku. Výsledný tvar je vycentrovaný na počátku osy XY."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: en\nHow do I create a simple 80×60×10 mm box?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `Box` directly inside `BuildPart` in the Builder API.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(80, 60, 10)\n```\n\n`Box` takes length, width, and height. The resulting solid is centered on the XY origin."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: cs\nJak odečtu válec z kvádru a zaoblím vzniklé hrany?"
+      },
+      {
+        "from": "gpt",
+        "value": "Odečtěte válec pomocí `Mode.SUBTRACT` a poté zaoblete hrany pomocí `fillet()`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(40, 40, 15)\n    Cylinder(radius=10, height=15, mode=Mode.SUBTRACT)\n    fillet(part.edges().filter_by(GeomType.CIRCLE), radius=2)\n```\n\n`filter_by(GeomType.CIRCLE)` vybere pouze kruhové hrany po odečtené válcové díře."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: en\nHow do I subtract a cylinder from a box and fillet the resulting edges?"
+      },
+      {
+        "from": "gpt",
+        "value": "Subtract the cylinder with `Mode.SUBTRACT`, then fillet the circular edges with `fillet()`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(40, 40, 15)\n    Cylinder(radius=10, height=15, mode=Mode.SUBTRACT)\n    fillet(part.edges().filter_by(GeomType.CIRCLE), radius=2)\n```\n\n`filter_by(GeomType.CIRCLE)` keeps only the circular edges created by the cylindrical hole."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: cs\nJak vytvořit trubku tažením kruhového profilu podél obloukové cesty (sweep)?"
+      },
+      {
+        "from": "gpt",
+        "value": "Definujte cestu v `BuildLine`, profil v `BuildSketch`, pak zavolejte `sweep()`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as pipe:\n    with BuildLine() as path:\n        l1 = JernArc(start=(0, 0), tangent=(0, 1), radius=30, arc_size=180)\n        l2 = JernArc(start=l1 @ 1, tangent=l1 % 1, radius=30, arc_size=-90)\n    with BuildSketch(Plane.XZ) as profile:\n        Circle(4)\n    sweep()\n```\n\nProfil musí ležet na rovině kolmé na počáteční tečnu cesty."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: en\nHow do I create a pipe by sweeping a circular profile along an arc path?"
+      },
+      {
+        "from": "gpt",
+        "value": "Define the path in `BuildLine`, define the profile in `BuildSketch`, then call `sweep()`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as pipe:\n    with BuildLine() as path:\n        l1 = JernArc(start=(0, 0), tangent=(0, 1), radius=30, arc_size=180)\n        l2 = JernArc(start=l1 @ 1, tangent=l1 % 1, radius=30, arc_size=-90)\n    with BuildSketch(Plane.XZ) as profile:\n        Circle(4)\n    sweep()\n```\n\nThe profile must lie on a plane that is perpendicular to the start tangent of the path."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: cs\nJak vybrat plochu s největší Z-souřadnicí (horní plocha)?"
+      },
+      {
+        "from": "gpt",
+        "value": "`sort_by(Axis.Z)[-1]` vrátí plochu s nejvyšší polohou ve směru Z.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(30, 30, 15)\n    top = part.faces().sort_by(Axis.Z)[-1]\n    with BuildSketch(top) as sk:\n        Circle(8)\n    extrude(amount=10)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: en\nHow do I select the face with the highest Z position (the top face)?"
+      },
+      {
+        "from": "gpt",
+        "value": "`sort_by(Axis.Z)[-1]` returns the face with the highest position along Z.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(30, 30, 15)\n    top = part.faces().sort_by(Axis.Z)[-1]\n    with BuildSketch(top) as sk:\n        Circle(8)\n    extrude(amount=10)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: cs\nJak vytvořit dutou krabičku (shell) z plného kvádru?"
+      },
+      {
+        "from": "gpt",
+        "value": "Použijte `offset()` se zápornou hodnotou a otevřenou plochu zadejte přes `openings`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as box:\n    Box(40, 30, 20)\n    top = box.faces().sort_by(Axis.Z)[-1]\n    offset(amount=-2, openings=top)\n```\n\n`openings=top` odstraní horní plochu a těleso zůstane otevřené."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: en\nHow do I create a hollow box (shell) from a solid box?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `offset()` with a negative amount and specify the opening face in `openings`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as box:\n    Box(40, 30, 20)\n    top = box.faces().sort_by(Axis.Z)[-1]\n    offset(amount=-2, openings=top)\n```\n\n`openings=top` removes the top face so the box stays open."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: cs\nJak spočítat objem všech solidů ve vnořené assembly?"
+      },
+      {
+        "from": "gpt",
+        "value": "Metoda `solids()` projde i vnořené `Compound` objekty. Díky tomu lze sečíst objem všech solidů v celé assembly, ne jen top-level node.\n\n```python\nfrom build123d import *\n\nassembly1 = Compound(label='Assembly1', children=[Box(1, 1, 1)])\nassembly2 = Compound(label='Assembly2', children=[assembly1, Box(1, 1, 1)])\nassembly3 = Compound(label='Assembly3', children=[assembly2, Box(1, 1, 1)])\n\ntotal_volume = sum(part.volume for part in assembly3.solids())\nassembly3_volume = assembly3.volume\n```\n\nV tomto příkladu je `total_volume` rovno `3`, zatímco `assembly3.volume` vrací jen objem top-level shape, tedy `1`."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: en\nHow do I compute the volume of all solids in a nested assembly?"
+      },
+      {
+        "from": "gpt",
+        "value": "The `solids()` method also walks nested `Compound` objects. That makes it possible to sum the volume of every solid in the whole assembly, not just the top-level node.\n\n```python\nfrom build123d import *\n\nassembly1 = Compound(label='Assembly1', children=[Box(1, 1, 1)])\nassembly2 = Compound(label='Assembly2', children=[assembly1, Box(1, 1, 1)])\nassembly3 = Compound(label='Assembly3', children=[assembly2, Box(1, 1, 1)])\n\ntotal_volume = sum(part.volume for part in assembly3.solids())\nassembly3_volume = assembly3.volume\n```\n\nIn this example, `total_volume` equals `3`, while `assembly3.volume` returns only the top-level shape volume, which is `1`."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REVIEW\nLANGUAGE: cs\nPosuď, zda tento kód opravdu vytvoří kvádr s průchozí dírou skrz střed. Pokud ne, popiš root cause a ukaž opravenou verzi.\n\n```python\nfrom build123d import *\n\nlength, width, thickness = 80.0, 60.0, 10.0\ncenter_hole_dia = 22.0\n\nwith BuildPart() as part:\n    Box(length, width, thickness)\n    Cylinder(\n        radius=center_hole_dia / 2,\n        height=thickness,\n    )\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "Není to správně. Root cause je v tom, že `Cylinder` běží ve výchozím `Mode.ADD`, takže se k boxu přidá další těleso místo odečtu. Pro skutečnou díru musí být válec v `Mode.SUBTRACT`.\n\n```python\nfrom build123d import *\n\nlength, width, thickness = 80.0, 60.0, 10.0\ncenter_hole_dia = 22.0\n\nwith BuildPart() as part:\n    Box(length, width, thickness)\n    Cylinder(\n        radius=center_hole_dia / 2,\n        height=thickness,\n        mode=Mode.SUBTRACT,\n    )\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REVIEW\nLANGUAGE: en\nCheck whether this code really creates a box with a hole through the center. If not, explain the root cause and show the corrected version.\n\n```python\nfrom build123d import *\n\nlength, width, thickness = 80.0, 60.0, 10.0\ncenter_hole_dia = 22.0\n\nwith BuildPart() as part:\n    Box(length, width, thickness)\n    Cylinder(\n        radius=center_hole_dia / 2,\n        height=thickness,\n    )\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "It is not correct. The root cause is that `Cylinder` runs with the default `Mode.ADD`, so it adds material instead of cutting a hole. To create a real through hole, the cylinder must use `Mode.SUBTRACT`.\n\n```python\nfrom build123d import *\n\nlength, width, thickness = 80.0, 60.0, 10.0\ncenter_hole_dia = 22.0\n\nwith BuildPart() as part:\n    Box(length, width, thickness)\n    Cylinder(\n        radius=center_hole_dia / 2,\n        height=thickness,\n        mode=Mode.SUBTRACT,\n    )\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REVIEW\nLANGUAGE: cs\nZkontroluj tento kód. Cíl je vytvořit kruh s odečteným obdélníkem a pak ho vytáhnout. Je to správně? Pokud ne, vysvětli chybu a oprav ji.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Circle(radius=30)\n        Rectangle(width=25, height=25, mode=Mode.SUBTRACT)\n        extrude(amount=10)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "Není to správně. Root cause je v umístění `extrude()`: to se má volat na úrovni `BuildPart`, ne uvnitř `BuildSketch`. Nejprve se dokončí skica a teprve potom se extruduje.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Circle(radius=30)\n        Rectangle(width=25, height=25, mode=Mode.SUBTRACT)\n    extrude(amount=10)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REVIEW\nLANGUAGE: en\nReview this code. The goal is to create a circle with a subtracted rectangle and then extrude it. Is the code correct? If not, explain the bug and fix it.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Circle(radius=30)\n        Rectangle(width=25, height=25, mode=Mode.SUBTRACT)\n        extrude(amount=10)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "It is not correct. The bug is the placement of `extrude()`: it belongs at the `BuildPart` level, not inside `BuildSketch`. Finish the sketch first, then extrude it.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Circle(radius=30)\n        Rectangle(width=25, height=25, mode=Mode.SUBTRACT)\n    extrude(amount=10)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REVIEW\nLANGUAGE: cs\nPosuď tento LEGO pattern. Má přidat pips na horní plochu hotového dílu. Je výběr plochy správně? Pokud ne, ukaž opravený kód.\n\n```python\nfrom build123d import *\n\nlego_unit_size = 8\npip_count = 6\npip_height = 1.8\npip_diameter = 4.8\nblock_length = lego_unit_size * pip_count\nblock_width = 16\n\nwith BuildPart() as lego:\n    Box(length=block_length, width=block_width, height=9.6)\n    with BuildPart(lego.faces().sort_by(Axis.Z)[0]):\n        with GridLocations(lego_unit_size, lego_unit_size, pip_count, 2):\n            Cylinder(\n                radius=pip_diameter / 2,\n                height=pip_height,\n                align=(Align.CENTER, Align.CENTER, Align.MIN),\n            )\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "Není to správně. Root cause je ve výběru plochy: `sort_by(Axis.Z)[0]` vrací nejnižší plochu, ale pips mají vzniknout na horní ploše. Proto je potřeba použít `[-1]`.\n\n```python\nfrom build123d import *\n\nlego_unit_size = 8\npip_count = 6\npip_height = 1.8\npip_diameter = 4.8\nblock_length = lego_unit_size * pip_count\nblock_width = 16\n\nwith BuildPart() as lego:\n    Box(length=block_length, width=block_width, height=9.6)\n    with BuildPart(lego.faces().sort_by(Axis.Z)[-1]):\n        with GridLocations(lego_unit_size, lego_unit_size, pip_count, 2):\n            Cylinder(\n                radius=pip_diameter / 2,\n                height=pip_height,\n                align=(Align.CENTER, Align.CENTER, Align.MIN),\n            )\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REVIEW\nLANGUAGE: en\nReview this LEGO pattern. It should add pips on the top face of the finished part. Is the face selection correct? If not, show the corrected code.\n\n```python\nfrom build123d import *\n\nlego_unit_size = 8\npip_count = 6\npip_height = 1.8\npip_diameter = 4.8\nblock_length = lego_unit_size * pip_count\nblock_width = 16\n\nwith BuildPart() as lego:\n    Box(length=block_length, width=block_width, height=9.6)\n    with BuildPart(lego.faces().sort_by(Axis.Z)[0]):\n        with GridLocations(lego_unit_size, lego_unit_size, pip_count, 2):\n            Cylinder(\n                radius=pip_diameter / 2,\n                height=pip_height,\n                align=(Align.CENTER, Align.CENTER, Align.MIN),\n            )\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "The face selection is not correct. The root cause is `sort_by(Axis.Z)[0]`, which picks the lowest face. The pips must be built on the highest face, so the selector must use `[-1]`.\n\n```python\nfrom build123d import *\n\nlego_unit_size = 8\npip_count = 6\npip_height = 1.8\npip_diameter = 4.8\nblock_length = lego_unit_size * pip_count\nblock_width = 16\n\nwith BuildPart() as lego:\n    Box(length=block_length, width=block_width, height=9.6)\n    with BuildPart(lego.faces().sort_by(Axis.Z)[-1]):\n        with GridLocations(lego_unit_size, lego_unit_size, pip_count, 2):\n            Cylinder(\n                radius=pip_diameter / 2,\n                height=pip_height,\n                align=(Align.CENTER, Align.CENTER, Align.MIN),\n            )\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REPAIR\nLANGUAGE: cs\nOprav tento kód tak, aby opravdu vytvořil sweep kruhového profilu po obloukové cestě.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as pipe:\n    with BuildLine() as path:\n        l1 = JernArc(start=(0, 0), tangent=(0, 1), radius=30, arc_size=180)\n        l2 = JernArc(start=l1 @ 1, tangent=l1 % 1, radius=30, arc_size=-90)\n    with BuildSketch() as profile:\n        Circle(4)\n    sweep()\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "Profil má být na rovině kolmé k počátku cesty. Opravená verze tedy používá `BuildSketch(Plane.XZ)`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as pipe:\n    with BuildLine() as path:\n        l1 = JernArc(start=(0, 0), tangent=(0, 1), radius=30, arc_size=180)\n        l2 = JernArc(start=l1 @ 1, tangent=l1 % 1, radius=30, arc_size=-90)\n    with BuildSketch(Plane.XZ) as profile:\n        Circle(4)\n    sweep()\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REPAIR\nLANGUAGE: en\nRepair this code so that it really creates a sweep of a circular profile along the arc path.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as pipe:\n    with BuildLine() as path:\n        l1 = JernArc(start=(0, 0), tangent=(0, 1), radius=30, arc_size=180)\n        l2 = JernArc(start=l1 @ 1, tangent=l1 % 1, radius=30, arc_size=-90)\n    with BuildSketch() as profile:\n        Circle(4)\n    sweep()\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "The profile should be defined on a plane that is perpendicular to the start of the path. The corrected version uses `BuildSketch(Plane.XZ)`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as pipe:\n    with BuildLine() as path:\n        l1 = JernArc(start=(0, 0), tangent=(0, 1), radius=30, arc_size=180)\n        l2 = JernArc(start=l1 @ 1, tangent=l1 % 1, radius=30, arc_size=-90)\n    with BuildSketch(Plane.XZ) as profile:\n        Circle(4)\n    sweep()\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REPAIR\nLANGUAGE: cs\nTento kód funguje, ale pro velkou assembly je zbytečně paměťově drahý. Přepiš ho tak, aby pro opakované díly používal mělké kopie místo plných kopií CAD objektu.\n\n```python\nimport copy\nfrom build123d import *\n\nscrew = import_step('M6-1x12-countersunk-screw.step')\nlocs = HexLocations(6, 10, 10).local_locations\n\nscrew_copies = [copy.deepcopy(screw).locate(loc) for loc in locs]\ncopy_assembly = Compound(children=screw_copies)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "Pro opakované díly je úspornější `copy.copy()`, protože sdílí interní CAD reprezentaci s originálem.\n\n```python\nimport copy\nfrom build123d import *\n\nscrew = import_step('M6-1x12-countersunk-screw.step')\nlocs = HexLocations(6, 10, 10).local_locations\n\nscrew_references = [copy.copy(screw).locate(loc) for loc in locs]\nreference_assembly = Compound(children=screw_references)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REPAIR\nLANGUAGE: en\nThis code works, but it is unnecessarily memory hungry for a large assembly. Rewrite it so that repeated parts use shallow copies instead of full CAD copies.\n\n```python\nimport copy\nfrom build123d import *\n\nscrew = import_step('M6-1x12-countersunk-screw.step')\nlocs = HexLocations(6, 10, 10).local_locations\n\nscrew_copies = [copy.deepcopy(screw).locate(loc) for loc in locs]\ncopy_assembly = Compound(children=screw_copies)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "For repeated parts, `copy.copy()` is more memory efficient because it shares the internal CAD representation with the original.\n\n```python\nimport copy\nfrom build123d import *\n\nscrew = import_step('M6-1x12-countersunk-screw.step')\nlocs = HexLocations(6, 10, 10).local_locations\n\nscrew_references = [copy.copy(screw).locate(loc) for loc in locs]\nreference_assembly = Compound(children=screw_references)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REPAIR\nLANGUAGE: cs\nOprav tento layout kód tak, aby všechna tělesa po `pack()` seděla na stejné XY rovině jako na print plate.\n\n```python\nfrom build123d import *\n\nb1 = Box(100, 100, 100, align=(Align.CENTER, Align.CENTER, Align.MIN))\nb2 = Box(54, 54, 54, align=(Align.CENTER, Align.CENTER, Align.MAX), mode=Mode.SUBTRACT)\nb3 = Box(34, 34, 34, align=(Align.MIN, Align.MIN, Align.CENTER), mode=Mode.SUBTRACT)\nb4 = Box(24, 24, 24, align=(Align.MAX, Align.MAX, Align.CENTER), mode=Mode.SUBTRACT)\n\nlayout = pack([b1, b2, b3, b4], padding=5, align_z=False)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "Pro společnou základní rovinu je potřeba zapnout `align_z=True`.\n\n```python\nfrom build123d import *\n\nb1 = Box(100, 100, 100, align=(Align.CENTER, Align.CENTER, Align.MIN))\nb2 = Box(54, 54, 54, align=(Align.CENTER, Align.CENTER, Align.MAX), mode=Mode.SUBTRACT)\nb3 = Box(34, 34, 34, align=(Align.MIN, Align.MIN, Align.CENTER), mode=Mode.SUBTRACT)\nb4 = Box(24, 24, 24, align=(Align.MAX, Align.MAX, Align.CENTER), mode=Mode.SUBTRACT)\n\nlayout = pack([b1, b2, b3, b4], padding=5, align_z=True)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REPAIR\nLANGUAGE: en\nRepair this layout code so that all solids end up on the same XY plane after `pack()`, like a print plate arrangement.\n\n```python\nfrom build123d import *\n\nb1 = Box(100, 100, 100, align=(Align.CENTER, Align.CENTER, Align.MIN))\nb2 = Box(54, 54, 54, align=(Align.CENTER, Align.CENTER, Align.MAX), mode=Mode.SUBTRACT)\nb3 = Box(34, 34, 34, align=(Align.MIN, Align.MIN, Align.CENTER), mode=Mode.SUBTRACT)\nb4 = Box(24, 24, 24, align=(Align.MAX, Align.MAX, Align.CENTER), mode=Mode.SUBTRACT)\n\nlayout = pack([b1, b2, b3, b4], padding=5, align_z=False)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "To align all solids on the same base plane, enable `align_z=True`.\n\n```python\nfrom build123d import *\n\nb1 = Box(100, 100, 100, align=(Align.CENTER, Align.CENTER, Align.MIN))\nb2 = Box(54, 54, 54, align=(Align.CENTER, Align.CENTER, Align.MAX), mode=Mode.SUBTRACT)\nb3 = Box(34, 34, 34, align=(Align.MIN, Align.MIN, Align.CENTER), mode=Mode.SUBTRACT)\nb4 = Box(24, 24, 24, align=(Align.MAX, Align.MAX, Align.CENTER), mode=Mode.SUBTRACT)\n\nlayout = pack([b1, b2, b3, b4], padding=5, align_z=True)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: cs\nJak nakreslit hladkou B-spline křivku?"
+      },
+      {
+        "from": "gpt",
+        "value": "Použijte `Spline` se seznamem kontrolních bodů a případně s tečnami na koncích.\n\n```python\nfrom build123d import *\n\nwith BuildLine() as ln:\n    Spline(\n        (0, 0), (10, 8), (20, 3), (30, 10),\n        tangents=((1, 0), (1, 0)),\n    )\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: en\nHow do I draw a smooth B-spline curve?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `Spline` with a sequence of control points and, if needed, end tangents.\n\n```python\nfrom build123d import *\n\nwith BuildLine() as ln:\n    Spline(\n        (0, 0), (10, 8), (20, 3), (30, 10),\n        tangents=((1, 0), (1, 0)),\n    )\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: cs\nJak vytvořit díru s válcovým zahloubením pro šroub M4?"
+      },
+      {
+        "from": "gpt",
+        "value": "Použijte `CounterBoreHole`, který vytvoří průchozí díru i válcové zahloubení v jednom kroku.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(40, 40, 15)\n    with Locations(part.faces().sort_by(Axis.Z)[-1]):\n        CounterBoreHole(\n            radius=2.1,\n            counter_bore_radius=4,\n            counter_bore_depth=3.5,\n        )\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: en\nHow do I create a counterbored hole for an M4 screw?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `CounterBoreHole` to create the through hole and the cylindrical recess in one operation.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(40, 40, 15)\n    with Locations(part.faces().sort_by(Axis.Z)[-1]):\n        CounterBoreHole(\n            radius=2.1,\n            counter_bore_radius=4,\n            counter_bore_depth=3.5,\n        )\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: cs\nJak vytvořit otočenou pracovní rovinu pomocí rotated()?"
+      },
+      {
+        "from": "gpt",
+        "value": "Vytvořte `Plane` z existující plochy a potom jej otočte metodou `rotated()`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(80, 60, 10)\n    pln = Plane(part.faces().group_by(Axis.Z)[0][0]).rotated((0, -45, 0))\n    with BuildSketch(pln) as sk:\n        Circle(5)\n    extrude(amount=-50, both=True, mode=Mode.SUBTRACT)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: en\nHow do I create a rotated workplane with `rotated()`?"
+      },
+      {
+        "from": "gpt",
+        "value": "Create a `Plane` from an existing face and rotate it with `rotated()`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(80, 60, 10)\n    pln = Plane(part.faces().group_by(Axis.Z)[0][0]).rotated((0, -45, 0))\n    with BuildSketch(pln) as sk:\n        Circle(5)\n    extrude(amount=-50, both=True, mode=Mode.SUBTRACT)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REVIEW\nLANGUAGE: cs\nPosuď, zda tento selector opravdu vybírá nejdelší hranu tělesa. Pokud ne, najdi root cause a oprav jej.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(10, 20, 30)\n    longest = part.edges().group_by(SortBy.LENGTH)[0]\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "Není to správně. Root cause je index `[0]`, který vrací skupinu s nejkratšími hranami, protože skupiny jsou seřazené vzestupně. Pro nejdelší hrany použijte `[-1]`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(10, 20, 30)\n    longest = part.edges().group_by(SortBy.LENGTH)[-1]\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REVIEW\nLANGUAGE: en\nCheck whether this selector really returns the longest edge of the body. If not, explain the root cause and fix it.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(10, 20, 30)\n    longest = part.edges().group_by(SortBy.LENGTH)[0]\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "It is not correct. The root cause is the index `[0]`: the groups are ordered from shortest to longest, so `[0]` returns the shortest edge group. Use `[-1]` for the longest one.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(10, 20, 30)\n    longest = part.edges().group_by(SortBy.LENGTH)[-1]\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REPAIR\nLANGUAGE: cs\nOprav tento příklad tak, aby správně získal velikost bounding boxu hotového modelu.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Sphere(radius=20)\n\nbbox = part.bounding_box()\nprint(bbox.size.X, bbox.size.Y, bbox.size.Z)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "Bounding box je potřeba číst z hotového `Solid` objektu uvnitř builder kontextu, tedy z `part.part`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Sphere(radius=20)\n\nbbox = part.part.bounding_box()\nprint(bbox.size.X, bbox.size.Y, bbox.size.Z)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REPAIR\nLANGUAGE: en\nRepair this example so it correctly gets the bounding box size of the finished model.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Sphere(radius=20)\n\nbbox = part.bounding_box()\nprint(bbox.size.X, bbox.size.Y, bbox.size.Z)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "The bounding box should be read from the finished `Solid` stored inside the builder context, so the call must go through `part.part`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Sphere(radius=20)\n\nbbox = part.part.bounding_box()\nprint(bbox.size.X, bbox.size.Y, bbox.size.Z)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: cs\nJak vytvořím válec s poloměrem 15 a výškou 40?"
+      },
+      {
+        "from": "gpt",
+        "value": "Použijte `Cylinder` s parametry `radius` a `height`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Cylinder(radius=15, height=40)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: en\nHow do I create a cylinder with radius 15 and height 40?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `Cylinder` with the named parameters `radius` and `height`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Cylinder(radius=15, height=40)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: cs\nJak umístit objekt na konkrétní souřadnice pomocí Locations?"
+      },
+      {
+        "from": "gpt",
+        "value": "`Locations` přijímá souřadnicové n-tice. Všechny objekty vytvořené uvnitř se umístí do zadaných bodů.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(100, 40, 5)\n    with Locations((30, 0, 5), (-30, 0, 5)):\n        with BuildSketch() as sk:\n            Circle(8)\n        extrude(amount=10)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: en\nHow do I place an object at specific coordinates with `Locations`?"
+      },
+      {
+        "from": "gpt",
+        "value": "`Locations` takes coordinate tuples. Every object created inside the block is placed at each given point.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(100, 40, 5)\n    with Locations((30, 0, 5), (-30, 0, 5)):\n        with BuildSketch() as sk:\n            Circle(8)\n        extrude(amount=10)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: cs\nJak importovat STEP soubor do build123d?"
+      },
+      {
+        "from": "gpt",
+        "value": "Použijte `import_step()` a výsledný shape přidejte do build kontextu pomocí `add()`.\n\n```python\nfrom build123d import *\n\nexisting = import_step(\"existing_part.step\")\n\nwith BuildPart() as part:\n    add(existing)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: en\nHow do I import a STEP file into build123d?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `import_step()` to load the STEP file as a shape, then add it into your build context.\n\n```python\nfrom build123d import *\n\nexisting = import_step(\"existing_part.step\")\n\nwith BuildPart() as part:\n    add(existing)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REVIEW\nLANGUAGE: cs\nZkontroluj, zda tento kód správně čte objem a povrch hotového tělesa. Pokud ne, popiš root cause a oprav jej.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Sphere(radius=10)\n\nprint(part.volume)\nprint(part.area)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "Není to správně. Root cause je v tom, že `volume` a `area` patří hotovému `Solid` objektu uvnitř builderu, tedy `part.part`, ne přímo wrapperu `BuildPart`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Sphere(radius=10)\n\nprint(part.part.volume)\nprint(part.part.area)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REVIEW\nLANGUAGE: en\nCheck whether this code correctly reads the volume and area of the finished solid. If not, explain the root cause and fix it.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Sphere(radius=10)\n\nprint(part.volume)\nprint(part.area)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "It is not correct. The root cause is that `volume` and `area` belong to the finished `Solid` stored inside the builder context, so the access must go through `part.part`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Sphere(radius=10)\n\nprint(part.part.volume)\nprint(part.part.area)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REVIEW\nLANGUAGE: cs\nPosuď tento import příklad. Má načíst STEP soubor do build123d. Je správně? Pokud ne, vysvětli root cause a oprav jej.\n\n```python\nfrom build123d import *\n\nexisting = export_step(\"existing_part.step\")\n\nwith BuildPart() as part:\n    add(existing)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "Není to správně. Root cause je v použité funkci: `export_step()` soubory zapisuje, ale tady potřebujete import. Oprava je použít `import_step()`.\n\n```python\nfrom build123d import *\n\nexisting = import_step(\"existing_part.step\")\n\nwith BuildPart() as part:\n    add(existing)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REVIEW\nLANGUAGE: en\nReview this import example. It should load a STEP file into build123d. Is it correct? If not, explain the root cause and fix it.\n\n```python\nfrom build123d import *\n\nexisting = export_step(\"existing_part.step\")\n\nwith BuildPart() as part:\n    add(existing)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "It is not correct. The root cause is the function choice: `export_step()` writes a STEP file, but here you need to load one. Use `import_step()` instead.\n\n```python\nfrom build123d import *\n\nexisting = import_step(\"existing_part.step\")\n\nwith BuildPart() as part:\n    add(existing)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REPAIR\nLANGUAGE: cs\nOprav tento Algebra API příklad tak, aby opravdu našel nové hrany po fillet.\n\n```python\nfrom build123d import *\n\nbox = Box(5, 5, 1)\ncircle = Cylinder(2, 5)\npart_before = box + circle\nedges = part_before.edges().filter_by(lambda a: a.length == 1)\npart = fillet(edges, 1)\nedges = part.edges(Select.NEW)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "V Algebra API po fillet použijte `new_edges()` mezi stavem před a po operaci.\n\n```python\nfrom build123d import *\n\nbox = Box(5, 5, 1)\ncircle = Cylinder(2, 5)\npart_before = box + circle\nedges = part_before.edges().filter_by(lambda a: a.length == 1)\npart = fillet(edges, 1)\nedges = new_edges(part_before, combined=part)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REPAIR\nLANGUAGE: en\nRepair this Algebra API example so that it really finds the new edges created by the fillet.\n\n```python\nfrom build123d import *\n\nbox = Box(5, 5, 1)\ncircle = Cylinder(2, 5)\npart_before = box + circle\nedges = part_before.edges().filter_by(lambda a: a.length == 1)\npart = fillet(edges, 1)\nedges = part.edges(Select.NEW)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "In the Algebra API after filleting, compare the shape before and after with `new_edges()`.\n\n```python\nfrom build123d import *\n\nbox = Box(5, 5, 1)\ncircle = Cylinder(2, 5)\npart_before = box + circle\nedges = part_before.edges().filter_by(lambda a: a.length == 1)\npart = fillet(edges, 1)\nedges = new_edges(part_before, combined=part)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REPAIR\nLANGUAGE: cs\nOprav tento selector tak, aby vybral čtyři vrcholy nejdál v kladném směru osy X.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(5, 5, 1)\n    Cylinder(1, 5)\n    furthest_x = part.vertices().sort_by(Axis.X)[:4]\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "První čtyři položky jsou naopak nejvíc vlevo. Pro vrcholy nejdál v kladném směru X je potřeba vzít poslední čtyři položky.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(5, 5, 1)\n    Cylinder(1, 5)\n    furthest_x = part.vertices().sort_by(Axis.X)[-4:]\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REPAIR\nLANGUAGE: en\nRepair this selector so it returns the four vertices farthest in the positive X direction.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(5, 5, 1)\n    Cylinder(1, 5)\n    furthest_x = part.vertices().sort_by(Axis.X)[:4]\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "The first four items are the vertices farthest in the negative direction. To get the vertices farthest in positive X, take the last four items instead.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(5, 5, 1)\n    Cylinder(1, 5)\n    furthest_x = part.vertices().sort_by(Axis.X)[-4:]\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: cs\nJak vytvořit matici M10 — šestihran s dírou?"
+      },
+      {
+        "from": "gpt",
+        "value": "Vykreslete šestihran, odečtěte kruh uprostřed a výsledek vytáhněte.\n\n```python\nfrom build123d import *\n\nnut_m10_flat_to_flat = 16\nnut_m10_thickness = 8\nhole_m10_dia = 10\n\nwith BuildPart() as nut:\n    with BuildSketch() as sk:\n        RegularPolygon(radius=nut_m10_flat_to_flat / 2, side_count=6)\n        Circle(radius=hole_m10_dia / 2, mode=Mode.SUBTRACT)\n    extrude(amount=nut_m10_thickness)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: en\nHow do I create an M10 nut — a hexagon with a hole?"
+      },
+      {
+        "from": "gpt",
+        "value": "Draw a regular hexagon, subtract a circle in the middle, and extrude the result.\n\n```python\nfrom build123d import *\n\nnut_m10_flat_to_flat = 16\nnut_m10_thickness = 8\nhole_m10_dia = 10\n\nwith BuildPart() as nut:\n    with BuildSketch() as sk:\n        RegularPolygon(radius=nut_m10_flat_to_flat / 2, side_count=6)\n        Circle(radius=hole_m10_dia / 2, mode=Mode.SUBTRACT)\n    extrude(amount=nut_m10_thickness)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: cs\nJak vytáhnout text jako 3D těleso?"
+      },
+      {
+        "from": "gpt",
+        "value": "K vygenerování textu použijte `Text` uvnitř `BuildSketch` a poté ho vytáhněte pomocí `extrude`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Text(\n            txt=\"build123d\",\n            font_size=10,\n            align=(Align.CENTER, Align.CENTER)\n        )\n    extrude(amount=2)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: GENERATE\nLANGUAGE: en\nHow do I extrude text as a 3D solid?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `Text` inside a `BuildSketch` to generate the font outlines, then `extrude` it.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Text(\n            txt=\"build123d\",\n            font_size=10,\n            align=(Align.CENTER, Align.CENTER)\n        )\n    extrude(amount=2)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REVIEW\nLANGUAGE: cs\nJe tento kód pro obousměrnou extruzi správný? Chci, aby se těleso natáhlo rovnoměrně na obě strany od roviny.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Rectangle(30, 20)\n    extrude(amount=15)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "Není to úplně správně. Výchozí nastavení `extrude(amount=15)` vytáhne profil pouze jedním směrem (o 15 jednotek). Pro obousměrnou symetrickou extruzi musíte přidat parametr `both=True`. Pokud chcete celkovou tloušťku 15, použijte `amount=15/2` a `both=True`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Rectangle(30, 20)\n    extrude(amount=15/2, both=True)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REVIEW\nLANGUAGE: en\nIs this code correct for a two-sided extrusion? I want the body to extend equally in both directions from the plane.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Rectangle(30, 20)\n    extrude(amount=15)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "It is not quite correct. By default, `extrude(amount=15)` pulls the profile in only one direction. For a symmetric two-sided extrusion, you must add `both=True`. If you want a total thickness of 15, use `amount=15/2` along with `both=True`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Rectangle(30, 20)\n    extrude(amount=15/2, both=True)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REPAIR\nLANGUAGE: cs\nOprav tento příklad tak, aby nakreslil oblouk skrz tři body, ne plnou kružnici.\n\n```python\nfrom build123d import *\n\nwith BuildLine() as ln:\n    Circle(radius=5)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "Místo `Circle` použijte `ThreePointArc`, kterému zadáte počáteční, prostřední a koncový bod oblouku.\n\n```python\nfrom build123d import *\n\nwith BuildLine() as ln:\n    ThreePointArc((0, 0), (10, 5), (20, 0))\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "TASK: REPAIR\nLANGUAGE: en\nRepair this example so it draws an arc through three points instead of a full circle.\n\n```python\nfrom build123d import *\n\nwith BuildLine() as ln:\n    Circle(radius=5)\n```"
+      },
+      {
+        "from": "gpt",
+        "value": "Instead of `Circle`, use `ThreePointArc` and provide the start, intermediate, and end points of the arc.\n\n```python\nfrom build123d import *\n\nwith BuildLine() as ln:\n    ThreePointArc((0, 0), (10, 5), (20, 0))\n```"
+      }
+    ]
+  }
+]

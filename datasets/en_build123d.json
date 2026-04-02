@@ -1,0 +1,914 @@
+[
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a simple 80×60×10 mm box?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `Box` directly inside `BuildPart` in the Builder API.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(80, 60, 10)\n```\n\n`Box` takes length, width, and height. The resulting solid is centered on the XY origin."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a box with a hole through the center?"
+      },
+      {
+        "from": "gpt",
+        "value": "Add a `Cylinder` with `mode=Mode.SUBTRACT` to cut it out of the box.\n\n```python\nfrom build123d import *\n\nlength, width, thickness = 80.0, 60.0, 10.0\ncenter_hole_dia = 22.0\n\nwith BuildPart() as part:\n    Box(length, width, thickness)\n    Cylinder(\n        radius=center_hole_dia / 2,\n        height=thickness,\n        mode=Mode.SUBTRACT,\n    )\n```\n\nThe default `mode` is `Mode.ADD`, so `SUBTRACT` must be stated explicitly here."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I subtract a cylinder from a box and fillet the resulting edges?"
+      },
+      {
+        "from": "gpt",
+        "value": "Subtract the cylinder with `Mode.SUBTRACT`, then fillet the circular edges with `fillet()`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(40, 40, 15)\n    Cylinder(radius=10, height=15, mode=Mode.SUBTRACT)\n    fillet(part.edges().filter_by(GeomType.CIRCLE), radius=2)\n```\n\n`filter_by(GeomType.CIRCLE)` keeps only the circular edges created by the cylindrical hole."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a 2D sketch of a circle with a subtracted rectangle and extrude it?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `BuildSketch` with `Circle` and `Rectangle(mode=Mode.SUBTRACT)`, then call `extrude()`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Circle(radius=30)\n        Rectangle(width=25, height=25, mode=Mode.SUBTRACT)\n    extrude(amount=10)\n```\n\n`extrude()` is called at the `BuildPart` level, not inside `BuildSketch`."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a closed profile with lines and arcs in `BuildLine`?"
+      },
+      {
+        "from": "gpt",
+        "value": "Draw the edges in `BuildLine`, close the loop, and turn it into a face with `make_face()`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        with BuildLine() as ln:\n            l1 = Line((0, 0), (80, 0))\n            l2 = Line((80, 0), (80, 60))\n            l3 = ThreePointArc((80, 60), (40, 90), (0, 60))\n            l4 = Line((0, 60), (0, 0))\n        make_face()\n    extrude(amount=10)\n```\n\nCall `make_face()` at the `BuildSketch` level, after leaving `BuildLine`."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create an arc with `JernArc`?"
+      },
+      {
+        "from": "gpt",
+        "value": "`JernArc` is defined by a start point, a tangent direction, a radius, and an arc size in degrees.\n\n```python\nfrom build123d import *\n\nwith BuildLine() as ln:\n    l1 = Line((0, 0), (20, 0))\n    JernArc(start=l1 @ 1, tangent=l1 % 1, radius=10, arc_size=90)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a solid by revolving a profile around the Z axis?"
+      },
+      {
+        "from": "gpt",
+        "value": "The whole profile must stay on one side of the rotation axis. Then call `revolve(axis=Axis.Z)`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch(Plane.XZ) as sk:\n        with BuildLine() as ln:\n            Polyline((5, 0), (15, 0), (15, 20), (8, 20), (8, 5), (5, 5))\n            Line(ln.vertices().sort_by(Axis.Y)[-1], ln.vertices().sort_by(Axis.Y)[0])\n        make_face()\n    revolve(axis=Axis.Z)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a pipe by sweeping a circular profile along an arc path?"
+      },
+      {
+        "from": "gpt",
+        "value": "Define the path in `BuildLine`, define the profile in `BuildSketch`, then call `sweep()`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as pipe:\n    with BuildLine() as path:\n        l1 = JernArc(start=(0, 0), tangent=(0, 1), radius=30, arc_size=180)\n        l2 = JernArc(start=l1 @ 1, tangent=l1 % 1, radius=30, arc_size=-90)\n    with BuildSketch(Plane.XZ) as profile:\n        Circle(4)\n    sweep()\n```\n\nThe profile must lie on a plane that is perpendicular to the start tangent of the path."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I place 6 holes evenly on a circle on the end face of a cylinder?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `Locations` to select the face and `PolarLocations` for the circular pattern.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as flange:\n    Cylinder(radius=25, height=8)\n    with Locations(flange.faces().sort_by(Axis.Z)[-1]):\n        with PolarLocations(radius=18, count=6):\n            Hole(radius=3)\n```\n\nIn the Builder API, `Hole()` automatically drills through the whole body."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I fillet the edges created by the last operation (`Select.LAST`)?"
+      },
+      {
+        "from": "gpt",
+        "value": "`Select.LAST` limits the edge selector to edges created or modified by the last feature operation.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(50, 50, 15)\n    Hole(radius=8)\n    fillet(part.edges(Select.LAST).group_by(Axis.Z)[-1], radius=1.5)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I select the face with the highest Z position (the top face)?"
+      },
+      {
+        "from": "gpt",
+        "value": "`sort_by(Axis.Z)[-1]` returns the face with the highest position along Z.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(30, 30, 15)\n    top = part.faces().sort_by(Axis.Z)[-1]\n    with BuildSketch(top) as sk:\n        Circle(8)\n    extrude(amount=10)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a hollow box (shell) from a solid box?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `offset()` with a negative amount and specify the opening face in `openings`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as box:\n    Box(40, 30, 20)\n    top = box.faces().sort_by(Axis.Z)[-1]\n    offset(amount=-2, openings=top)\n```\n\n`openings=top` removes the top face so the box stays open."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a parametric flange model with a variable number of holes?"
+      },
+      {
+        "from": "gpt",
+        "value": "Define the parameters as regular Python variables and reuse them throughout the build123d model.\n\n```python\nfrom build123d import *\n\n# Parameters\nflange_r = 30\nhole_r = 3\nhole_count = 6\nbolt_circle_r = 22\nthickness = 8\n\nwith BuildPart() as flange:\n    Cylinder(radius=flange_r, height=thickness)\n    Hole(radius=8)  # central hole\n    with Locations(flange.faces().sort_by(Axis.Z)[-1]):\n        with PolarLocations(radius=bolt_circle_r, count=hole_count):\n            Hole(radius=hole_r)\n    fillet(flange.edges().filter_by(GeomType.CIRCLE), radius=0.5)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "What is the Algebra API in build123d and how is it different from the Builder API?"
+      },
+      {
+        "from": "gpt",
+        "value": "Build123d offers two styles of expression:\n\n- **Builder API** uses context managers like `with BuildPart() as p:` and adds objects implicitly\n- **Algebra API** uses direct Python operators like `+`, `-`, and `*`, which suits a more functional style\n\n```python\nfrom build123d import *\n\n# Builder API\nwith BuildPart() as b_part:\n    Box(30, 20, 10)\n    Cylinder(radius=5, height=10, mode=Mode.SUBTRACT)\n\n# Algebra API (equivalent)\na_part = Box(30, 20, 10) - Cylinder(radius=5, height=10)\n```\n\nBoth styles produce the same BREP result."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "What is the difference between `Select.LAST` and `Select.NEW` for edge selectors?"
+      },
+      {
+        "from": "gpt",
+        "value": "`Select.LAST` returns edges created or changed by the last operation, while `Select.NEW` returns only edges that are truly new. `Select.NEW` works only on the active builder object in the current context.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(5, 5, 1)\n    Cylinder(1, 5)\n    changed_edges = part.edges(Select.LAST)\n    fresh_edges = part.edges(Select.NEW)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I offset a specific sketch object instead of all pending faces?"
+      },
+      {
+        "from": "gpt",
+        "value": "`offset()` can take a direct reference to a specific sketch object. In the LEGO tutorial, this is used to offset only the outer rectangle stored in `perimeter`.\n\n```python\nfrom build123d import *\n\nlego_unit_size = 8\npip_count = 6\nblock_length = lego_unit_size * pip_count\nblock_width = 16\nwall_thickness = 1.2\n\nwith BuildSketch() as plan:\n    perimeter = Rectangle(width=block_length, height=block_width)\n    offset(\n        perimeter,\n        -wall_thickness,\n        kind=Kind.INTERSECTION,\n        mode=Mode.SUBTRACT,\n    )\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I add features on the top face of a finished part with `BuildPart(face)`?"
+      },
+      {
+        "from": "gpt",
+        "value": "`BuildPart(face)` creates a new build context directly on the selected face of an existing part. The LEGO tutorial uses this pattern to place the top pips on the highest face.\n\n```python\nfrom build123d import *\n\nlego_unit_size = 8\npip_count = 6\npip_height = 1.8\npip_diameter = 4.8\nblock_length = lego_unit_size * pip_count\nblock_width = 16\n\nwith BuildPart() as lego:\n    Box(length=block_length, width=block_width, height=9.6)\n    with BuildPart(lego.faces().sort_by(Axis.Z)[-1]):\n        with GridLocations(lego_unit_size, lego_unit_size, pip_count, 2):\n            Cylinder(\n                radius=pip_diameter / 2,\n                height=pip_height,\n                align=(Align.CENTER, Align.CENTER, Align.MIN),\n            )\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I compute the volume of all solids in a nested assembly?"
+      },
+      {
+        "from": "gpt",
+        "value": "The `solids()` method also walks nested `Compound` objects. That makes it possible to sum the volume of every solid in the whole assembly, not just the top-level node.\n\n```python\nfrom build123d import *\n\nassembly1 = Compound(label='Assembly1', children=[Box(1, 1, 1)])\nassembly2 = Compound(label='Assembly2', children=[assembly1, Box(1, 1, 1)])\nassembly3 = Compound(label='Assembly3', children=[assembly2, Box(1, 1, 1)])\n\ntotal_volume = sum(part.volume for part in assembly3.solids())\nassembly3_volume = assembly3.volume\n```\n\nIn this example, `total_volume` equals `3`, while `assembly3.volume` returns only the top-level shape volume, which is `1`."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "When should I use `copy.deepcopy()` and when `copy.copy()` when building an assembly?"
+      },
+      {
+        "from": "gpt",
+        "value": "`copy.deepcopy()` creates a full CAD copy. `copy.copy()` creates only a shallow copy that shares the internal CAD representation with the original. For large assemblies with many repeated parts, `copy.copy()` is far more memory efficient.\n\n```python\nimport copy\nfrom build123d import *\n\nscrew = import_step('M6-1x12-countersunk-screw.step')\nlocs = HexLocations(6, 10, 10).local_locations\n\nscrew_copies = [copy.deepcopy(screw).locate(loc) for loc in locs]\ncopy_assembly = Compound(children=screw_copies)\n\nscrew_references = [copy.copy(screw).locate(loc) for loc in locs]\nreference_assembly = Compound(children=screw_references)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I arrange multiple solids into a compact 2D layout with `pack()`?"
+      },
+      {
+        "from": "gpt",
+        "value": "`pack()` arranges solids into a collision-free 2D layout. `align_z=True` additionally aligns all bottoms to the same XY plane, which is useful for a print plate style layout.\n\n```python\nfrom build123d import *\n\nb1 = Box(100, 100, 100, align=(Align.CENTER, Align.CENTER, Align.MIN))\nb2 = Box(54, 54, 54, align=(Align.CENTER, Align.CENTER, Align.MAX), mode=Mode.SUBTRACT)\nb3 = Box(34, 34, 34, align=(Align.MIN, Align.MIN, Align.CENTER), mode=Mode.SUBTRACT)\nb4 = Box(24, 24, 24, align=(Align.MAX, Align.MAX, Align.CENTER), mode=Mode.SUBTRACT)\n\nxy_pack = pack([b1, b2, b3, b4], padding=5, align_z=False)\nz_pack = pack([b1, b2, b3, b4], padding=5, align_z=True)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I draw a smooth B-spline curve?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `Spline` with a sequence of control points and, if needed, end tangents.\n\n```python\nfrom build123d import *\n\nwith BuildLine() as ln:\n    Spline(\n        (0, 0), (10, 8), (20, 3), (30, 10),\n        tangents=((1, 0), (1, 0)),\n    )\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I model a 3D helix?"
+      },
+      {
+        "from": "gpt",
+        "value": "Inside `BuildLine`, use `Helix` with `pitch`, `height`, and `radius`.\n\n```python\nfrom build123d import *\n\nwith BuildLine() as path:\n    Helix(pitch=3, height=30, radius=8)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create an extrusion with a draft angle?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use the `taper` argument of `extrude()` to define the draft angle in degrees.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Rectangle(20, 20)\n    extrude(amount=15, taper=5)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create an extrusion that stops at the next face of a body?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `extrude(until=Until.NEXT)` so the operation stops at the first face it meets.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(30, 30, 20)\n    with BuildSketch(Plane.XY.offset(25)) as sk:\n        Circle(5)\n    extrude(until=Until.NEXT, mode=Mode.SUBTRACT)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a lofted solid that transitions from a circle to a rectangle?"
+      },
+      {
+        "from": "gpt",
+        "value": "Create two `BuildSketch` sections at different heights and then call `loft()`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch(Plane.XY) as sk_bottom:\n        Circle(20)\n    with BuildSketch(Plane.XY.offset(40)) as sk_top:\n        Rectangle(15, 15)\n    loft()\n```\n\n`loft()` automatically consumes the pending faces from both sketches."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I place holes in a 3×3 square grid?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `GridLocations` to place the holes on a regular XY grid.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as plate:\n    Box(60, 60, 8)\n    with Locations(plate.faces().sort_by(Axis.Z)[-1]):\n        with GridLocations(x_spacing=18, y_spacing=18, x_count=3, y_count=3):\n            Hole(radius=3)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a honeycomb of hexagonal openings?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `HexLocations` to place repeated hexagonal profiles before subtracting them.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as honeycomb:\n    Box(80, 70, 3)\n    with Locations(honeycomb.faces().sort_by(Axis.Z)[-1]):\n        with HexLocations(radius=6, x_count=5, y_count=5):\n            with BuildSketch() as sk:\n                RegularPolygon(radius=5, side_count=6)\n            extrude(amount=-3, mode=Mode.SUBTRACT)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "What is the difference between `Hole()` and `Cylinder(mode=Mode.SUBTRACT)`?"
+      },
+      {
+        "from": "gpt",
+        "value": "`Hole()` automatically cuts through the full depth of the current solid in the Builder API. `Cylinder(mode=Mode.SUBTRACT)` is more general, but you must define its height yourself.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(30, 30, 20)\n    with Locations(part.faces().sort_by(Axis.Z)[-1]):\n        Hole(radius=5)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a counterbored hole for an M4 screw?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `CounterBoreHole` to create the through hole and the cylindrical recess in one operation.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(40, 40, 15)\n    with Locations(part.faces().sort_by(Axis.Z)[-1]):\n        CounterBoreHole(\n            radius=2.1,\n            counter_bore_radius=4,\n            counter_bore_depth=3.5,\n        )\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a countersunk hole?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `CounterSinkHole` for a through hole with a conical countersink.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(40, 40, 10)\n    with Locations(part.faces().sort_by(Axis.Z)[-1]):\n        CounterSinkHole(\n            radius=2.1,\n            counter_sink_radius=4,\n        )\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a circular pattern of counterbored holes?"
+      },
+      {
+        "from": "gpt",
+        "value": "Combine `Locations` for the face, `PolarLocations` for the pattern, and `CounterBoreHole` for each hole.\n\n```python\nfrom build123d import *\n\na, b = 40, 4\n\nwith BuildPart() as part:\n    Cylinder(radius=55, height=12)\n    with Locations(part.faces().sort_by(Axis.Z)[-1]):\n        with PolarLocations(radius=a, count=4):\n            CounterBoreHole(\n                radius=b,\n                counter_bore_radius=2 * b,\n                counter_bore_depth=b,\n            )\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I fillet all edges of a box?"
+      },
+      {
+        "from": "gpt",
+        "value": "Pass all box edges into `fillet()` together with the fillet radius.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(30, 30, 20)\n    fillet(part.edges(), radius=3)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I chamfer only the top edges of a box?"
+      },
+      {
+        "from": "gpt",
+        "value": "`group_by(Axis.Z)[-1]` returns the edge group with the highest Z position. Use that group with `chamfer()`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(40, 40, 15)\n    chamfer(part.edges().group_by(Axis.Z)[-1], length=2)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I select only planar faces on a solid?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `filter_by(GeomType.PLANE)` to keep only flat faces.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Cylinder(radius=15, height=20)\n    planar = part.faces().filter_by(GeomType.PLANE)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I select the longest edge with `group_by()`?"
+      },
+      {
+        "from": "gpt",
+        "value": "`group_by(SortBy.LENGTH)[-1]` returns the group containing the longest edges.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(10, 20, 30)\n    longest = part.edges().group_by(SortBy.LENGTH)[-1]\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I get the bounding box size of a model?"
+      },
+      {
+        "from": "gpt",
+        "value": "Call `bounding_box()` on the resulting part and inspect `bbox.size`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Sphere(radius=20)\n\nbbox = part.part.bounding_box()\nprint(bbox.size.X, bbox.size.Y, bbox.size.Z)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a sketch on an offset workplane?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `Plane.XY.offset(height)` to make a new workplane shifted along Z.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(30, 30, 10)\n    with BuildSketch(Plane.XY.offset(10)) as sk:\n        Circle(8)\n    extrude(amount=15)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a rotated workplane with `rotated()`?"
+      },
+      {
+        "from": "gpt",
+        "value": "Create a `Plane` from an existing face and rotate it with `rotated()`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(80, 60, 10)\n    pln = Plane(part.faces().group_by(Axis.Z)[0][0]).rotated((0, -45, 0))\n    with BuildSketch(pln) as sk:\n        Circle(5)\n    extrude(amount=-50, both=True, mode=Mode.SUBTRACT)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I split a body with a plane and keep one half?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `split(bisect_by=Plane)` to cut the solid. By default, the part on the positive side of the plane normal is kept.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Sphere(radius=20)\n    split(bisect_by=Plane.XY)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I export a model to a STEP file?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `export_step()` on the finished part. STEP is a good neutral exchange format for CAD systems.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Cylinder(radius=10, height=30)\n    fillet(part.edges().filter_by(GeomType.CIRCLE), radius=1)\n\npart.part.export_step(\"model.step\")\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a cylinder with radius 15 and height 40?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `Cylinder` with the named parameters `radius` and `height`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Cylinder(radius=15, height=40)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a sphere with radius 20?"
+      },
+      {
+        "from": "gpt",
+        "value": "`Sphere` takes a single required parameter: the radius.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Sphere(radius=20)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I make a frustum with `Cone` in build123d?"
+      },
+      {
+        "from": "gpt",
+        "value": "`Cone` takes `bottom_radius`, `top_radius`, and `height`. If `top_radius=0`, the result is a full cone.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Cone(bottom_radius=15, top_radius=5, height=30)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a torus?"
+      },
+      {
+        "from": "gpt",
+        "value": "`Torus` takes `major_radius` and `minor_radius`. The major radius measures from the torus center to the center of the tube.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Torus(major_radius=30, minor_radius=8)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "What are the ways to combine solids in build123d?"
+      },
+      {
+        "from": "gpt",
+        "value": "The Builder API offers four `Mode` values:\n\n- `Mode.ADD` adds material\n- `Mode.SUBTRACT` removes material\n- `Mode.INTERSECT` keeps only the intersection\n- `Mode.REPLACE` replaces the current shape\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(20, 20, 20)\n    Sphere(12, mode=Mode.INTERSECT)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I draw a regular hexagon in BuildSketch?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `RegularPolygon` with the circumscribed `radius` and the `side_count`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        RegularPolygon(radius=15, side_count=6)\n    extrude(amount=5)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create an M10 nut — a hexagon with a hole?"
+      },
+      {
+        "from": "gpt",
+        "value": "Draw a hexagon, subtract a circle for the hole, and then extrude the sketch.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as nut:\n    with BuildSketch() as sk:\n        RegularPolygon(radius=9, side_count=6)\n        Circle(radius=5, mode=Mode.SUBTRACT)\n    extrude(amount=8)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I extrude text as a 3D solid?"
+      },
+      {
+        "from": "gpt",
+        "value": "Inside `BuildSketch`, `Text` creates planar geometry from a string. Then `extrude()` turns it into a solid.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Text(\"BUILD123D\", font_size=10)\n    extrude(amount=3)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I draw an ellipse and extrude it?"
+      },
+      {
+        "from": "gpt",
+        "value": "`Ellipse` takes `x_radius` and `y_radius`. Create the sketch first, then extrude it.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Ellipse(x_radius=20, y_radius=10)\n    extrude(amount=5)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I draw a slot defined by its overall length?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `SlotOverall`, where `width` is the overall length and `height` is the slot width.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        SlotOverall(width=30, height=8)\n    extrude(amount=4)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I draw a trapezoid?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `Trapezoid` with `width`, `height`, and optional side angles.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Trapezoid(width=20, height=10, left_side_angle=75)\n    extrude(amount=5)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create an L profile with `Polyline`?"
+      },
+      {
+        "from": "gpt",
+        "value": "Draw the closed profile with `Polyline(close=True)`, convert it into a face, and extrude it.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as l_profile:\n    with BuildSketch() as sk:\n        with BuildLine() as ln:\n            Polyline(\n                (0, 0), (40, 0), (40, 5),\n                (5, 5), (5, 30), (0, 30),\n                close=True,\n            )\n        make_face()\n    extrude(amount=100)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I draw an arc through three points with `ThreePointArc`?"
+      },
+      {
+        "from": "gpt",
+        "value": "`ThreePointArc` takes the start point, one intermediate point on the arc, and the end point.\n\n```python\nfrom build123d import *\n\nwith BuildLine() as ln:\n    ThreePointArc((0, 0), (10, 5), (20, 0))\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create an arc with a fixed radius between two points?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `RadiusArc` with `start_point`, `end_point`, and `radius`.\n\n```python\nfrom build123d import *\n\nwith BuildLine() as ln:\n    RadiusArc(start_point=(0, 0), end_point=(20, 0), radius=15)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create an arc tangent to the previous line?"
+      },
+      {
+        "from": "gpt",
+        "value": "`TangentArc` continues from the end and tangent of the previous curve. The `@` operator returns a point and `%` returns a tangent.\n\n```python\nfrom build123d import *\n\nwith BuildLine() as ln:\n    l1 = Line((0, 0), (20, 0))\n    TangentArc(pts=[l1 @ 1, (30, 10)], tangent=l1 % 1)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I extrude a sketch in only one direction instead of symmetrically?"
+      },
+      {
+        "from": "gpt",
+        "value": "By default, `extrude()` moves in the positive normal direction of the workplane. Use a positive or negative `amount` to control the direction.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Rectangle(30, 20)\n    extrude(amount=15)\n```\n\nFor a two-sided extrusion, add `both=True`."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I limit a revolve operation to 180 degrees?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use the `revolution_arc` parameter of `revolve()` to set the rotation angle in degrees.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch(Plane.XZ) as sk:\n        Rectangle(10, 20, align=(Align.MIN, Align.CENTER))\n    revolve(axis=Axis.Z, revolution_arc=180)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I place an object at specific coordinates with `Locations`?"
+      },
+      {
+        "from": "gpt",
+        "value": "`Locations` takes coordinate tuples. Every object created inside the block is placed at each given point.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(100, 40, 5)\n    with Locations((30, 0, 5), (-30, 0, 5)):\n        with BuildSketch() as sk:\n            Circle(8)\n        extrude(amount=10)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I fillet only the vertical edges of a box?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `filter_by(Axis.Z)` to keep only edges parallel to the Z axis.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(40, 30, 20)\n    fillet(part.edges().filter_by(Axis.Z), radius=4)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I use an existing face of a body as a workplane?"
+      },
+      {
+        "from": "gpt",
+        "value": "Pass the selected face directly into `BuildSketch()` as the working plane.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(30, 30, 10)\n    top = part.faces().sort_by(Axis.Z)[-1]\n    with BuildSketch(top) as sk:\n        Circle(8)\n    extrude(amount=10)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I mirror a whole 3D model across the YZ plane?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `mirror(about=Plane.YZ)` to add a mirrored copy of the current body.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with Locations((15, 0, 0)):\n        Box(10, 10, 10)\n    mirror(about=Plane.YZ)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I mirror part of a sketch in `BuildSketch`?"
+      },
+      {
+        "from": "gpt",
+        "value": "`mirror()` also works inside `BuildSketch`, so you can mirror 2D geometry before extrusion.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        with Locations((10, 0)):\n            Rectangle(5, 20)\n        mirror(about=Plane.YZ)\n    extrude(amount=5)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I export a model to an STL file?"
+      },
+      {
+        "from": "gpt",
+        "value": "Call `export_stl()` on the finished part.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(30, 20, 10)\n\npart.part.export_stl(\"model.stl\")\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I use a Python for-loop to build a stepped body?"
+      },
+      {
+        "from": "gpt",
+        "value": "A varying `extrude()` amount inside a Python loop produces features with progressively different heights.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch(mode=Mode.PRIVATE) as sk:\n        with PolarLocations(radius=30, count=6):\n            RegularPolygon(radius=8, side_count=6)\n    for idx, face in enumerate(sk.sketch.faces()):\n        add(face)\n        extrude(amount=5 + idx * 3)\n```\n\n`mode=Mode.PRIVATE` prevents the faces from being added automatically before the loop handles them."
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create an I-beam by mirroring a profile?"
+      },
+      {
+        "from": "gpt",
+        "value": "Draw one quarter of the profile, then mirror it across `Plane.YZ` and `Plane.XZ` before extruding.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as i_beam:\n    with BuildSketch() as sk:\n        with BuildLine() as ln:\n            Polyline(\n                (1, 0), (1, 8), (6, 8),\n                (6, 10), (0, 10), (0, 0),\n            )\n            Line(ln.vertices().sort_by(Axis.X)[0],\n                 ln.vertices().sort_by(Axis.Y)[0])\n        make_face()\n        mirror(about=Plane.YZ)\n        mirror(about=Plane.XZ)\n    extrude(amount=100)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I add a thread to a cylinder with a helix sweep?"
+      },
+      {
+        "from": "gpt",
+        "value": "Create the cylinder, use `Helix` as the path, define a triangular profile on a plane aligned to the helix start, and then `sweep()` it in `Mode.SUBTRACT`.\n\n```python\nfrom build123d import *\n\npitch = 1.5\nheight = 20\nradius = 5\n\nwith BuildPart() as bolt:\n    Cylinder(radius=radius, height=height)\n    with BuildLine() as path:\n        Helix(pitch=pitch, height=height, radius=radius)\n    with BuildSketch(\n        Plane(origin=path.edges()[0] @ 0, z_dir=path.edges()[0] % 0)\n    ) as profile:\n        Triangle(a=pitch * 0.6, b=pitch * 0.6, C=60)\n    sweep(mode=Mode.SUBTRACT)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I get the volume and surface area of a finished solid?"
+      },
+      {
+        "from": "gpt",
+        "value": "The `volume` and `area` attributes are available directly on the resulting `Solid`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Sphere(radius=10)\n\nprint(f\"Volume: {part.part.volume:.2f} mm³\")\nprint(f\"Area: {part.part.area:.2f} mm²\")\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I combine multiple `BuildPart` objects together?"
+      },
+      {
+        "from": "gpt",
+        "value": "Inside another `BuildPart`, use `add()` to insert bodies built in separate contexts.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as base:\n    Box(50, 50, 5)\n\nwith BuildPart() as pin:\n    Cylinder(radius=3, height=15)\n\nwith BuildPart() as assembly:\n    add(base.part)\n    with Locations((10, 10, 5)):\n        add(pin.part)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I import a STEP file into build123d?"
+      },
+      {
+        "from": "gpt",
+        "value": "Use `import_step()` to load the STEP file as a shape, then add it into your build context.\n\n```python\nfrom build123d import *\n\nexisting = import_step(\"existing_part.step\")\n\nwith BuildPart() as part:\n    add(existing)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Why can `Select.NEW` return an empty result even after two operations?"
+      },
+      {
+        "from": "gpt",
+        "value": "If the last operation does not create truly new edges and only reuses existing topology, `Select.NEW` returns an empty list. That is exactly what happens in this upstream example.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(5, 5, 1, align=(Align.CENTER, Align.CENTER, Align.MAX))\n    Cylinder(2, 2, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    no_new_edges = part.edges(Select.NEW)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I find the new edges after combining two solids in the Algebra API?"
+      },
+      {
+        "from": "gpt",
+        "value": "In the Algebra API, use the helper `new_edges()` because `Select.NEW` is not available there.\n\n```python\nfrom build123d import *\n\nbox = Box(5, 5, 1)\ncircle = Cylinder(2, 5)\npart = box + circle\nedges = new_edges(box, circle, combined=part)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I find the new edges created by a fillet in the Algebra API?"
+      },
+      {
+        "from": "gpt",
+        "value": "Compare the shape before and after `fillet()` with `new_edges()`. This is useful because `Select.NEW` typically does not help after filleting.\n\n```python\nfrom build123d import *\n\nbox = Box(5, 5, 1)\ncircle = Cylinder(2, 5)\npart_before = box + circle\nedges = part_before.edges().filter_by(lambda a: a.length == 1)\npart = fillet(edges, 1)\nedges = new_edges(part_before, combined=part)\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I select the four vertices farthest in the X direction?"
+      },
+      {
+        "from": "gpt",
+        "value": "Sort the vertices along `Axis.X` and take the last four items.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(5, 5, 1)\n    Cylinder(1, 5)\n    furthest_x = part.vertices().sort_by(Axis.X)[-4:]\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I get the edges of the smallest faces by area?"
+      },
+      {
+        "from": "gpt",
+        "value": "Group the faces by `SortBy.AREA`, take the first group, and then extract its edges.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(5, 5, 1)\n    Cylinder(1, 5)\n    smallest_face_edges = part.faces().group_by(SortBy.AREA)[0].edges()\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I filter faces by a normal pointing in the positive Z direction?"
+      },
+      {
+        "from": "gpt",
+        "value": "`filter_by()` can take a lambda predicate. Here it keeps only faces whose normal equals `Vector(0, 0, 1)`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(5, 5, 1)\n    upward_faces = part.faces().filter_by(\n        lambda f: f.normal_at() == Vector(0, 0, 1)\n    )\n```"
+      }
+    ]
+  },
+  {
+    "conversations": [
+      {
+        "from": "human",
+        "value": "How do I create a simple tree-like assembly with `Compound(children=...)`?"
+      },
+      {
+        "from": "gpt",
+        "value": "The simplest assembly structure in build123d is a tree of `Shape` objects connected through `Compound(children=[...])`.\n\n```python\nfrom build123d import *\n\nassembly1 = Compound(label='Assembly1', children=[Box(1, 1, 1)])\nassembly2 = Compound(label='Assembly2', children=[assembly1, Box(1, 1, 1)])\nassembly3 = Compound(label='Assembly3', children=[assembly2, Box(1, 1, 1)])\n```"
+      }
+    ]
+  }
+]

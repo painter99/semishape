@@ -1,0 +1,146 @@
+[
+  {
+    "id": "fim-001",
+    "task": "FIM",
+    "language": "agnostic",
+    "sources": [
+      "cs_build123d.json#2",
+      "en_build123d.json#2"
+    ],
+    "description": "FIM task: Middle contains a subtractive cylinder. Suffix contains the final export.",
+    "prompt": "<|fim_prefix|>from build123d import *\n\nlength, width, thickness = 80.0, 60.0, 10.0\ncenter_hole_dia = 22.0\n\nwith BuildPart() as part:\n    Box(length, width, thickness)\n<|fim_suffix|>    part.part.export_stl(\"plate.stl\")\n<|fim_middle|>",
+    "completion": "    Cylinder(\n        radius=center_hole_dia / 2,\n        height=thickness,\n        mode=Mode.SUBTRACT,\n    )\n"
+  },
+  {
+    "id": "fim-002",
+    "task": "FIM",
+    "language": "agnostic",
+    "sources": [
+      "cs_build123d.json#9",
+      "en_build123d.json#9"
+    ],
+    "description": "FIM task: Middle contains sketch elements. Suffix contains extrude and export.",
+    "prompt": "<|fim_prefix|>from build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n<|fim_suffix|>    extrude(amount=10)\n\n    part.part.export_step(\"flange.step\")\n<|fim_middle|>",
+    "completion": "        Circle(radius=30)\n        Rectangle(width=25, height=25, mode=Mode.SUBTRACT)\n"
+  },
+  {
+    "id": "fim-003",
+    "task": "FIM",
+    "language": "agnostic",
+    "sources": [
+      "cs_build123d.json#16",
+      "en_build123d.json#16"
+    ],
+    "description": "FIM task: Middle contains chamfer. Suffix contains final bounding box check.",
+    "prompt": "<|fim_prefix|>from build123d import *\n\nwith BuildPart() as part:\n    Box(10, 10, 10)\n<|fim_suffix|>\nprint(part.part.bounding_box())\n<|fim_middle|>",
+    "completion": "    chamfer(part.edges(), length=1)\n"
+  },
+  {
+    "id": "fim-004",
+    "task": "FIM",
+    "language": "agnostic",
+    "sources": [
+      "cs_build123d.json#23",
+      "en_build123d.json#23"
+    ],
+    "description": "FIM task: Middle contains hole parameters. Suffix contains the next pattern generation.",
+    "prompt": "<|fim_prefix|>from build123d import *\n\nwith BuildPart() as part:\n    Box(50, 50, 10)\n    with Locations(part.faces().sort_by(Axis.Z)[-1]):\n        Hole(\n<|fim_suffix|>        )\n    \n    with PolarLocations(radius=15, count=4):\n        Hole(radius=2)\n<|fim_middle|>",
+    "completion": "            radius=5,\n            depth=10\n"
+  },
+  {
+    "id": "fim-005",
+    "task": "FIM",
+    "language": "agnostic",
+    "sources": [
+      "cs_build123d.json#27",
+      "en_build123d.json#27"
+    ],
+    "description": "FIM task: Middle contains sweep path alignment. Suffix contains the sweep call and volume check.",
+    "prompt": "<|fim_prefix|>from build123d import *\n\nwith BuildLine() as path:\n    Spline((0, 0, 0), (10, 10, 20), (20, 0, 40))\n\nwith BuildPart() as part:\n<|fim_suffix|>    sweep(path=path)\n\nprint(f\"Volume: {part.part.volume}\")\n<|fim_middle|>",
+    "completion": "    with BuildSketch(Plane(origin=path.edges()[0] @ 0, z_dir=path.edges()[0] % 0)):\n        Circle(2)\n"
+  },
+  {
+    "id": "fim-006",
+    "task": "FIM",
+    "language": "agnostic",
+    "sources": [
+      "cs_build123d.json#31",
+      "en_build123d.json#31"
+    ],
+    "description": "FIM task: Middle contains loft parameters. Suffix contains the fillet operation.",
+    "prompt": "<|fim_prefix|>from build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch(Plane.XY) as base:\n        Rectangle(20, 20)\n    with BuildSketch(Plane.XY.offset(20)) as top:\n        Circle(5)\n    loft(\n<|fim_suffix|>    )\n    fillet(part.edges().filter_by(Axis.Z), radius=2)\n<|fim_middle|>",
+    "completion": "        ruled=False\n"
+  },
+  {
+    "id": "fim-007",
+    "task": "FIM",
+    "language": "agnostic",
+    "sources": [
+      "cs_build123d.json#38",
+      "en_build123d.json#29"
+    ],
+    "description": "FIM task: Middle contains CounterBoreHole parameters. Suffix contains the next chamfer step.",
+    "prompt": "<|fim_prefix|>from build123d import *\n\nwith BuildPart() as part:\n    Box(40, 40, 15)\n    with Locations(part.faces().sort_by(Axis.Z)[-1]):\n<|fim_suffix|>    chamfer(part.edges().sort_by(Axis.Z)[-4:], length=0.5)\n<|fim_middle|>",
+    "completion": "        CounterBoreHole(\n            radius=2.1,\n            counter_bore_radius=4,\n            counter_bore_depth=3.5,\n        )\n"
+  },
+  {
+    "id": "fim-008",
+    "task": "FIM",
+    "language": "agnostic",
+    "sources": [
+      "cs_build123d.json#49",
+      "en_build123d.json#38"
+    ],
+    "description": "FIM task: Middle contains plane definition and sketch. Suffix contains the extrude subtract call.",
+    "prompt": "<|fim_prefix|>from build123d import *\n\nwith BuildPart() as part:\n    Box(80, 60, 10)\n<|fim_suffix|>    extrude(amount=-50, both=True, mode=Mode.SUBTRACT)\n\n    assert len(part.part.faces()) > 6\n<|fim_middle|>",
+    "completion": "    pln = Plane(part.faces().group_by(Axis.Z)[0][0]).rotated((0, -45, 0))\n    with BuildSketch(pln) as sk:\n        Circle(5)\n"
+  },
+  {
+    "id": "fim-009",
+    "task": "FIM",
+    "language": "agnostic",
+    "sources": [
+      "cs_build123d.json#63",
+      "en_build123d.json#69"
+    ],
+    "description": "FIM task: Middle contains import_step and add. Suffix contains an extra extrusion on top of it.",
+    "prompt": "<|fim_prefix|>from build123d import *\n\n<|fim_suffix|>    with BuildSketch(part.faces().sort_by(Axis.Z)[-1]):\n        Circle(5)\n    extrude(amount=10)\n<|fim_middle|>",
+    "completion": "existing = import_step(\"existing_part.step\")\n\nwith BuildPart() as part:\n    add(existing)\n"
+  },
+  {
+    "id": "fim-010",
+    "task": "FIM",
+    "language": "agnostic",
+    "sources": [
+      "cs_build123d.json#68",
+      "en_build123d.json#73"
+    ],
+    "description": "FIM task: Middle contains array slice. Suffix contains chamfering those specific vertices.",
+    "prompt": "<|fim_prefix|>from build123d import *\n\nwith BuildPart() as part:\n    Box(5, 5, 1)\n    Cylinder(1, 5)\n    furthest_x = part.vertices().sort_by(Axis.X)<|fim_suffix|>\n    chamfer(furthest_x, length=0.2)\n<|fim_middle|>",
+    "completion": "[-4:]"
+  },
+  {
+    "id": "fim-011",
+    "task": "FIM",
+    "language": "agnostic",
+    "sources": [
+      "cs_build123d.json#11",
+      "en_build123d.json#47"
+    ],
+    "description": "FIM task: Middle contains hole subtraction for nut. Suffix contains the extrusion.",
+    "prompt": "<|fim_prefix|>from build123d import *\n\nwith BuildPart() as nut:\n    with BuildSketch() as sk:\n        RegularPolygon(radius=8, side_count=6)\n<|fim_suffix|>    extrude(amount=8)\n<|fim_middle|>",
+    "completion": "        Circle(radius=5, mode=Mode.SUBTRACT)\n"
+  },
+  {
+    "id": "fim-012",
+    "task": "FIM",
+    "language": "agnostic",
+    "sources": [
+      "cs_build123d.json#12",
+      "en_build123d.json#48"
+    ],
+    "description": "FIM task: Middle contains text generation parameters. Suffix contains the text alignment.",
+    "prompt": "<|fim_prefix|>from build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        Text(\n            txt=\"build123d\",\n<|fim_suffix|>            align=(Align.CENTER, Align.CENTER)\n        )\n    extrude(amount=2)\n<|fim_middle|>",
+    "completion": "            font_size=10,\n"
+  }
+]

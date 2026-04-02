@@ -1,0 +1,146 @@
+[
+  {
+    "id": "cs-generate-eval-001",
+    "task": "GENERATE",
+    "language": "cs",
+    "sources": [
+      "cs_build123d.json#16"
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "TASK: GENERATE\nLANGUAGE: cs\nJak se vytváří uzavřený profil pomocí čar a oblouků v BuildLine?"
+      },
+      {
+        "role": "assistant",
+        "content": "Nakreslete čáry a oblouk v `BuildLine`, po uzavření křivky zavolejte `make_face()` a potom profil vytáhněte.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        with BuildLine() as ln:\n            l1 = Line((0, 0), (80, 0))\n            l2 = Line((80, 0), (80, 60))\n            l3 = ThreePointArc((80, 60), (40, 90), (0, 60))\n            l4 = Line((0, 60), (0, 0))\n        make_face()\n    extrude(amount=10)\n```\n\n`make_face()` se volá až po opuštění `BuildLine`, ale stále uvnitř `BuildSketch`."
+      }
+    ]
+  },
+  {
+    "id": "en-generate-eval-001",
+    "task": "GENERATE",
+    "language": "en",
+    "sources": [
+      "en_build123d.json#13"
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "TASK: GENERATE\nLANGUAGE: en\nHow do I create a parametric flange model with a variable number of holes?"
+      },
+      {
+        "role": "assistant",
+        "content": "Define the main dimensions as normal Python parameters and reuse them in the build123d model.\n\n```python\nfrom build123d import *\n\nflange_r = 30\nhole_r = 3\nhole_count = 6\nbolt_circle_r = 22\nthickness = 8\n\nwith BuildPart() as flange:\n    Cylinder(radius=flange_r, height=thickness)\n    Hole(radius=8)\n    with Locations(flange.faces().sort_by(Axis.Z)[-1]):\n        with PolarLocations(radius=bolt_circle_r, count=hole_count):\n            Hole(radius=hole_r)\n    fillet(flange.edges().filter_by(GeomType.CIRCLE), radius=0.5)\n```"
+      }
+    ]
+  },
+  {
+    "id": "cs-generate-eval-002",
+    "task": "GENERATE",
+    "language": "cs",
+    "sources": [
+      "cs_build123d.json#64"
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "TASK: GENERATE\nLANGUAGE: cs\nJaký je rozdíl mezi `Select.LAST` a `Select.NEW` u selektorů hran?"
+      },
+      {
+        "role": "assistant",
+        "content": "`Select.LAST` vrací hrany vytvořené nebo změněné poslední operací, zatímco `Select.NEW` vrací jen hrany, které jsou opravdu nové. `Select.NEW` funguje pouze na builder objektu v aktivním kontextu.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(5, 5, 1)\n    Cylinder(1, 5)\n    changed_edges = part.edges(Select.LAST)\n    fresh_edges = part.edges(Select.NEW)\n```"
+      }
+    ]
+  },
+  {
+    "id": "en-generate-eval-002",
+    "task": "GENERATE",
+    "language": "en",
+    "sources": [
+      "en_build123d.json#16"
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "TASK: GENERATE\nLANGUAGE: en\nHow do I offset a specific sketch object instead of all pending faces?"
+      },
+      {
+        "role": "assistant",
+        "content": "Pass the specific sketch object directly into `offset()`. In the LEGO-style pattern below, only the rectangle stored in `perimeter` is offset.\n\n```python\nfrom build123d import *\n\nlego_unit_size = 8\npip_count = 6\nblock_length = lego_unit_size * pip_count\nblock_width = 16\nwall_thickness = 1.2\n\nwith BuildSketch() as plan:\n    perimeter = Rectangle(width=block_length, height=block_width)\n    offset(\n        perimeter,\n        -wall_thickness,\n        kind=Kind.INTERSECTION,\n        mode=Mode.SUBTRACT,\n    )\n```"
+      }
+    ]
+  },
+  {
+    "id": "cs-review-eval-001",
+    "task": "REVIEW",
+    "language": "cs",
+    "sources": [
+      "cs_build123d.json#16"
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "TASK: REVIEW\nLANGUAGE: cs\nPosuď, zda tento kód správně vytvoří uzavřený profil a vytáhne ho. Pokud ne, najdi root cause a ukaž opravenou verzi.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        with BuildLine() as ln:\n            Line((0, 0), (80, 0))\n            Line((80, 0), (80, 60))\n            ThreePointArc((80, 60), (40, 90), (0, 60))\n            Line((0, 60), (0, 0))\n    extrude(amount=10)\n```"
+      },
+      {
+        "role": "assistant",
+        "content": "Není to správně. Root cause je chybějící `make_face()`. Samotná uzavřená křivka ještě není plocha, takže `extrude()` nemá co vytáhnout.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch() as sk:\n        with BuildLine() as ln:\n            Line((0, 0), (80, 0))\n            Line((80, 0), (80, 60))\n            ThreePointArc((80, 60), (40, 90), (0, 60))\n            Line((0, 60), (0, 0))\n        make_face()\n    extrude(amount=10)\n```"
+      }
+    ]
+  },
+  {
+    "id": "en-review-eval-001",
+    "task": "REVIEW",
+    "language": "en",
+    "sources": [
+      "en_build123d.json#15"
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "TASK: REVIEW\nLANGUAGE: en\nReview this selector code. The intent is to capture edges changed by the last operation. Is the selector correct? If not, explain the root cause and show the fix.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(5, 5, 1)\n    Cylinder(1, 5)\n    changed_edges = part.edges(Select.NEW)\n```"
+      },
+      {
+        "role": "assistant",
+        "content": "The selector is not correct for that intent. The root cause is that `Select.NEW` returns only edges that are truly new, while the request asks for edges changed by the last operation. For that meaning, use `Select.LAST`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(5, 5, 1)\n    Cylinder(1, 5)\n    changed_edges = part.edges(Select.LAST)\n```"
+      }
+    ]
+  },
+  {
+    "id": "cs-repair-eval-001",
+    "task": "REPAIR",
+    "language": "cs",
+    "sources": [
+      "cs_build123d.json#66"
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "TASK: REPAIR\nLANGUAGE: cs\nOprav tento Algebra API příklad tak, aby opravdu našel nové hrany po spojení dvou těles.\n\n```python\nfrom build123d import *\n\nbox = Box(5, 5, 1)\ncircle = Cylinder(2, 5)\npart = box + circle\nedges = part.edges(Select.NEW)\n```"
+      },
+      {
+        "role": "assistant",
+        "content": "V Algebra API se `Select.NEW` nepoužívá. Pro tento úkol je potřeba funkce `new_edges()`, která porovná vstupy s výsledkem kombinace.\n\n```python\nfrom build123d import *\n\nbox = Box(5, 5, 1)\ncircle = Cylinder(2, 5)\npart = box + circle\nedges = new_edges(box, circle, combined=part)\n```"
+      }
+    ]
+  },
+  {
+    "id": "en-repair-eval-001",
+    "task": "REPAIR",
+    "language": "en",
+    "sources": [
+      "en_build123d.json#7"
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "TASK: REPAIR\nLANGUAGE: en\nRepair this revolve example so that it really revolves the profile around the Z axis.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch(Plane.XY) as sk:\n        with BuildLine() as ln:\n            Polyline((5, 0), (15, 0), (15, 20), (8, 20), (8, 5), (5, 5))\n            Line(ln.vertices().sort_by(Axis.Y)[-1], ln.vertices().sort_by(Axis.Y)[0])\n        make_face()\n    revolve(axis=Axis.Z)\n```"
+      },
+      {
+        "role": "assistant",
+        "content": "The sketch plane is the problem. To revolve around `Axis.Z`, this profile should be built on `Plane.XZ`, not `Plane.XY`.\n\n```python\nfrom build123d import *\n\nwith BuildPart() as part:\n    with BuildSketch(Plane.XZ) as sk:\n        with BuildLine() as ln:\n            Polyline((5, 0), (15, 0), (15, 20), (8, 20), (8, 5), (5, 5))\n            Line(ln.vertices().sort_by(Axis.Y)[-1], ln.vertices().sort_by(Axis.Y)[0])\n        make_face()\n    revolve(axis=Axis.Z)\n```"
+      }
+    ]
+  }
+]
