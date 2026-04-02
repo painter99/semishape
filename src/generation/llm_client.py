@@ -5,94 +5,46 @@ Handles configuration from environment variables, rate limiting,
 and error handling with retries.
 """
 
+# CRITICAL: Load environment variables FIRST before anything else
+# Direct file reading without dotenv dependency
 import os
+from pathlib import Path
+
+def _load_env_file(env_path: str):
+    """Load environment variables from file directly."""
+    try:
+        with open(env_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip()
+                    # Only set if not already set
+                    if key and key not in os.environ:
+                        os.environ[key] = value
+    except Exception:
+        pass
+
+# Load from Agent Zero .env (contains API keys)
+_load_env_file('/a0/usr/.env')
+
+# Now import the rest
 import time
 import json
 import logging
 from typing import Optional, Dict, Any, List, Generator
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
-from pathlib import Path
-
-# Load environment variables from .env files
-try:
-    from dotenv import load_dotenv
-    # Load from project .env first
-    project_env = Path(__file__).parent.parent.parent / ".env"
-    if project_env.exists():
-        load_dotenv(project_env)
-    # Load from Agent Zero .env (contains API keys)
-    a0_env = Path("/a0/usr/.env")
-    if a0_env.exists():
-        load_dotenv(a0_env, override=True)
-except ImportError:
-    pass  # dotenv not available, rely on system env
 
 import requests
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class LLMConfig:
-    """Configuration for LLM client."""
-    provider: str = "openrouter"  # openrouter or ollama
-    model: str = "openai/gpt-4o-mini"  # default model
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None
-    max_tokens: int = 4096
-    temperature: float = 0.7
-    top_p: float = 0.9
-    timeout: int = 120
-    max_retries: int = 3
-    retry_delay: float = 1.0
-    
-    # Provider-specific defaults
-    openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    ollama_base_url: str = "http://localhost:11434"
-    
-    @classmethod
-    def from_env(cls) -> 'LLMConfig':
-        """Load configuration from environment variables.
-        
-        Environment variables:
-        - API_KEY_OPENROUTER: OpenRouter API key
-        - API_KEY_OLLAMA: Ollama API key (optional)
-        - LLM_PROVIDER: 'openrouter' or 'ollama'
-        - LLM_MODEL: Model identifier
-        - LLM_BASE_URL: Override base URL
-        - LLM_MAX_TOKENS: Max tokens for response
-        - LLM_TEMPERATURE: Sampling temperature
-        """
-        provider = os.getenv("LLM_PROVIDER", "openrouter").lower()
-        
-        # Determine API key based on provider
-        if provider == "ollama":
-            api_key = os.getenv("API_KEY_OLLAMA", "")
-            base_url = os.getenv("LLM_BASE_URL", "http://localhost:11434")
-            model = os.getenv("LLM_MODEL", "llama3.2")
-        else:  # openrouter
-            api_key = os.getenv("API_KEY_OPENROUTER", "")
-            base_url = os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1")
-            model = os.getenv("LLM_MODEL", "openai/gpt-4o-mini")
-        
-        return cls(
-            provider=provider,
-            model=model,
-            api_key=api_key,
-            base_url=base_url,
-            max_tokens=int(os.getenv("LLM_MAX_TOKENS", "4096")),
-            temperature=float(os.getenv("LLM_TEMPERATURE", "0.7")),
-            top_p=float(os.getenv("LLM_TOP_P", "0.9")),
-            timeout=int(os.getenv("LLM_TIMEOUT", "120")),
-            max_retries=int(os.getenv("LLM_MAX_RETRIES", "3")),
-            retry_delay=float(os.getenv("LLM_RETRY_DELAY", "1.0")),
-        )
-
-
-@dataclass
 class ChatMessage:
-    """A single chat message."""
-    role: str  # system, user, assistant
+    """Chat message structure."""
+    role: str  # "system", "user", "assistant"
     content: str
     
     def to_dict(self) -> Dict[str, str]:
@@ -101,37 +53,107 @@ class ChatMessage:
 
 @dataclass
 class LLMResponse:
-    """Response from LLM completion."""
+    """LLM response structure."""
     content: str
     model: str
     usage: Dict[str, int] = field(default_factory=dict)
     finish_reason: str = "stop"
-    raw_response: Dict[str, Any] = field(default_factory=dict)
+    
+    @property
+    def token_count(self) -> int:
+        return self.usage.get("total_tokens", 0)
+
+
+@dataclass
+class LLMConfig:
+    """Configuration for LLM client."""
+    provider: str = "openrouter"
+    model: str = "ibm/granite-4-h-micro"
+    api_key: str = field(default_factory=lambda: os.environ.get("API_KEY_OPENROUTER", ""))
+    base_url: str = "https://openrouter.ai/api/v1"
+    temperature: float = 0.7
+    max_tokens: int = 2048
+    timeout: int = 60
+    
+    def __post_init__(self):
+        # Ensure API key is set from environment if not provided
+        if not self.api_key:
+            self.api_key = os.environ.get("API_KEY_OPENROUTER", "")
+        # Set base URL based on provider
+        if self.provider == "ollama":
+            self.base_url = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+    
+    @classmethod
+    def from_env(cls) -> "LLMConfig":
+        """Create configuration from environment variables."""
+        provider = os.environ.get("LLM_PROVIDER", "openrouter")
+        model = os.environ.get("LLM_MODEL", "ibm/granite-4-h-micro")
+        return cls(provider=provider, model=model)
 
 
 class BaseLLMClient(ABC):
-    """Abstract base class for LLM clients."""
+    """Base class for LLM clients."""
     
     def __init__(self, config: LLMConfig):
         self.config = config
     
     @abstractmethod
-    def complete(
-        self,
-        messages: List[ChatMessage],
-        **kwargs
-    ) -> LLMResponse:
-        """Complete a chat conversation."""
+    def generate(self, prompt: str, **kwargs) -> str:
+        """Generate text from prompt."""
         pass
     
     @abstractmethod
-    def stream_complete(
-        self,
-        messages: List[ChatMessage],
-        **kwargs
-    ) -> Generator[str, None, None]:
-        """Stream completion chunks."""
+    def generate_stream(self, prompt: str, **kwargs) -> Generator[str, None, None]:
+        """Generate text as stream."""
         pass
+    
+    def complete(self, messages=None, prompt=None, **kwargs) -> LLMResponse:
+        """Complete method for compatibility with inference.py.
+        
+        Accepts either:
+        - messages=[ChatMessage(...), ...] (list of ChatMessage objects)
+        - messages=[{"role": "user", "content": "..."}] (list of dicts)
+        - prompt="..." (fallback)
+        """
+        if messages is None and prompt is None:
+            raise ValueError("Either messages or prompt must be provided")
+        
+        # Convert ChatMessage objects to dicts if needed
+        formatted_messages = []
+        for msg in (messages or []):
+            if hasattr(msg, 'to_dict'):
+                formatted_messages.append(msg.to_dict())
+            elif hasattr(msg, 'role') and hasattr(msg, 'content'):
+                formatted_messages.append({"role": msg.role, "content": msg.content})
+            elif isinstance(msg, dict):
+                formatted_messages.append(msg)
+            else:
+                raise ValueError(f"Invalid message type: {type(msg)}")
+        
+        # Use messages if available, otherwise use prompt
+        result = self.generate(prompt or "", messages=formatted_messages, **kwargs)
+        return LLMResponse(
+            content=result,
+            model=self.config.model,
+            usage={},
+            finish_reason="stop"
+        )
+    
+    def stream_complete(self, messages=None, prompt=None, **kwargs) -> Generator[str, None, None]:
+        """Stream complete method for compatibility."""
+        if messages is None and prompt is None:
+            raise ValueError("Either messages or prompt must be provided")
+        
+        formatted_messages = []
+        for msg in (messages or []):
+            if hasattr(msg, 'to_dict'):
+                formatted_messages.append(msg.to_dict())
+            elif hasattr(msg, 'role') and hasattr(msg, 'content'):
+                formatted_messages.append({"role": msg.role, "content": msg.content})
+            elif isinstance(msg, dict):
+                formatted_messages.append(msg)
+        
+        return self.generate_stream(prompt or "", messages=formatted_messages, **kwargs)
 
 
 class OpenRouterClient(BaseLLMClient):
@@ -139,227 +161,124 @@ class OpenRouterClient(BaseLLMClient):
     
     def __init__(self, config: LLMConfig):
         super().__init__(config)
-        if not config.api_key:
+        # Verify API key after env is loaded
+        self.api_key = config.api_key or os.environ.get("API_KEY_OPENROUTER", "")
+        if not self.api_key:
             raise ValueError("API_KEY_OPENROUTER is required for OpenRouter")
-        self.session = requests.Session()
-        self.session.headers.update({
-            "Authorization": f"Bearer {config.api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/semishape",
-            "X-Title": "SemiShape CAD Assistant"
-        })
+        self.base_url = config.base_url
+        self.model = config.model
+        self._client = None
     
-    def _make_request(
-        self,
-        messages: List[ChatMessage],
-        stream: bool = False,
-        **kwargs
-    ) -> Dict[str, Any]:
-        """Build request payload."""
-        return {
-            "model": kwargs.get("model", self.config.model),
-            "messages": [m.to_dict() for m in messages],
-            "max_tokens": kwargs.get("max_tokens", self.config.max_tokens),
-            "temperature": kwargs.get("temperature", self.config.temperature),
-            "top_p": kwargs.get("top_p", self.config.top_p),
-            "stream": stream,
-        }
-    
-    def _retry_request(
-        self,
-        url: str,
-        payload: Dict[str, Any],
-        stream: bool = False
-    ) -> requests.Response:
-        """Make request with retry logic."""
-        last_error = None
-        
-        for attempt in range(self.config.max_retries):
+    @property
+    def client(self):
+        """Lazy load OpenRouter client."""
+        if self._client is None:
             try:
-                response = self.session.post(
-                    url,
-                    json=payload,
-                    timeout=self.config.timeout,
-                    stream=stream
+                import openai
+                self._client = openai.OpenAI(
+                    base_url=self.base_url,
+                    api_key=self.api_key,
                 )
-                
-                # Handle rate limiting
-                if response.status_code == 429:
-                    retry_after = float(response.headers.get("Retry-After", self.config.retry_delay * 2))
-                    logger.warning(f"Rate limited, waiting {retry_after}s")
-                    time.sleep(retry_after)
-                    continue
-                
-                response.raise_for_status()
-                return response
-                
-            except requests.exceptions.RequestException as e:
-                last_error = e
-                logger.warning(f"Request failed (attempt {attempt + 1}): {e}")
-                
-                if attempt < self.config.max_retries - 1:
-                    time.sleep(self.config.retry_delay * (2 ** attempt))  # Exponential backoff
-                
-        raise RuntimeError(f"Request failed after {self.config.max_retries} retries: {last_error}")
+            except ImportError:
+                raise ImportError("openai package required: pip install openai")
+        return self._client
     
-    def complete(
-        self,
-        messages: List[ChatMessage],
-        **kwargs
-    ) -> LLMResponse:
-        """Complete a chat conversation."""
-        url = f"{self.config.base_url}/chat/completions"
-        payload = self._make_request(messages, stream=False, **kwargs)
+    def generate(self, prompt: str, **kwargs) -> str:
+        """Generate text from prompt."""
+        messages = kwargs.get("messages", [{"role": "user", "content": prompt}])
         
-        response = self._retry_request(url, payload)
-        data = response.json()
-        
-        choice = data.get("choices", [{}])[0]
-        message = choice.get("message", {})
-        
-        return LLMResponse(
-            content=message.get("content", ""),
-            model=data.get("model", self.config.model),
-            usage=data.get("usage", {}),
-            finish_reason=choice.get("finish_reason", "stop"),
-            raw_response=data
-        )
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=kwargs.get("temperature", self.config.temperature),
+                max_tokens=kwargs.get("max_tokens", self.config.max_tokens),
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"OpenRouter API error: {e}")
+            raise
     
-    def stream_complete(
-        self,
-        messages: List[ChatMessage],
-        **kwargs
-    ) -> Generator[str, None, None]:
-        """Stream completion chunks."""
-        url = f"{self.config.base_url}/chat/completions"
-        payload = self._make_request(messages, stream=True, **kwargs)
+    def generate_stream(self, prompt: str, **kwargs) -> Generator[str, None, None]:
+        """Generate text as stream."""
+        messages = kwargs.get("messages", [{"role": "user", "content": prompt}])
         
-        response = self._retry_request(url, payload, stream=True)
-        
-        for line in response.iter_lines():
-            if line:
-                line = line.decode('utf-8')
-                if line.startswith("data: "):
-                    data_str = line[6:]
-                    if data_str == "[DONE]":
-                        break
-                    try:
-                        data = json.loads(data_str)
-                        delta = data.get("choices", [{}])[0].get("delta", {})
-                        content = delta.get("content", "")
-                        if content:
-                            yield content
-                    except json.JSONDecodeError:
-                        continue
+        try:
+            stream = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=kwargs.get("temperature", self.config.temperature),
+                max_tokens=kwargs.get("max_tokens", self.config.max_tokens),
+                stream=True,
+            )
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+        except Exception as e:
+            logger.error(f"OpenRouter stream error: {e}")
+            raise
 
 
 class OllamaClient(BaseLLMClient):
-    """Ollama local API client."""
+    """Local Ollama client."""
     
     def __init__(self, config: LLMConfig):
         super().__init__(config)
-        self.base_url = config.base_url or "http://localhost:11434"
-        self.session = requests.Session()
+        self.base_url = config.base_url
+        self.model = config.model
     
-    def _make_request(
-        self,
-        messages: List[ChatMessage],
-        stream: bool = False,
-        **kwargs
-    ) -> Dict[str, Any]:
-        """Build request payload for Ollama API."""
-        return {
-            "model": kwargs.get("model", self.config.model),
-            "messages": [m.to_dict() for m in messages],
-            "options": {
-                "num_predict": kwargs.get("max_tokens", self.config.max_tokens),
-                "temperature": kwargs.get("temperature", self.config.temperature),
-                "top_p": kwargs.get("top_p", self.config.top_p),
+    def generate(self, prompt: str, **kwargs) -> str:
+        """Generate text from prompt."""
+        import requests
+        
+        response = requests.post(
+            f"{self.base_url}/api/generate",
+            json={
+                "model": self.model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": kwargs.get("temperature", self.config.temperature),
+                    "num_predict": kwargs.get("max_tokens", self.config.max_tokens),
+                }
             },
-            "stream": stream,
-        }
-    
-    def _retry_request(
-        self,
-        endpoint: str,
-        payload: Dict[str, Any],
-        stream: bool = False
-    ) -> requests.Response:
-        """Make request with retry logic."""
-        last_error = None
-        url = f"{self.base_url}{endpoint}"
-        
-        for attempt in range(self.config.max_retries):
-            try:
-                response = self.session.post(
-                    url,
-                    json=payload,
-                    timeout=self.config.timeout,
-                    stream=stream
-                )
-                response.raise_for_status()
-                return response
-                
-            except requests.exceptions.RequestException as e:
-                last_error = e
-                logger.warning(f"Ollama request failed (attempt {attempt + 1}): {e}")
-                
-                if attempt < self.config.max_retries - 1:
-                    time.sleep(self.config.retry_delay * (2 ** attempt))
-        
-        raise RuntimeError(f"Ollama request failed after {self.config.max_retries} retries: {last_error}")
-    
-    def complete(
-        self,
-        messages: List[ChatMessage],
-        **kwargs
-    ) -> LLMResponse:
-        """Complete a chat conversation."""
-        payload = self._make_request(messages, stream=False, **kwargs)
-        response = self._retry_request("/api/chat", payload)
-        data = response.json()
-        
-        return LLMResponse(
-            content=data.get("message", {}).get("content", ""),
-            model=data.get("model", self.config.model),
-            usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},  # Ollama doesn't provide
-            finish_reason="stop",
-            raw_response=data
+            timeout=self.config.timeout,
         )
+        response.raise_for_status()
+        return response.json().get("response", "")
     
-    def stream_complete(
-        self,
-        messages: List[ChatMessage],
-        **kwargs
-    ) -> Generator[str, None, None]:
-        """Stream completion chunks."""
-        payload = self._make_request(messages, stream=True, **kwargs)
-        response = self._retry_request("/api/chat", payload, stream=True)
+    def generate_stream(self, prompt: str, **kwargs) -> Generator[str, None, None]:
+        """Generate text as stream."""
+        import requests
+        
+        response = requests.post(
+            f"{self.base_url}/api/generate",
+            json={
+                "model": self.model,
+                "prompt": prompt,
+                "stream": True,
+                "options": {
+                    "temperature": kwargs.get("temperature", self.config.temperature),
+                    "num_predict": kwargs.get("max_tokens", self.config.max_tokens),
+                }
+            },
+            stream=True,
+            timeout=self.config.timeout,
+        )
+        response.raise_for_status()
         
         for line in response.iter_lines():
             if line:
-                try:
-                    data = json.loads(line.decode('utf-8'))
-                    content = data.get("message", {}).get("content", "")
-                    if content:
-                        yield content
-                except json.JSONDecodeError:
-                    continue
+                data = json.loads(line)
+                if "response" in data:
+                    yield data["response"]
 
 
-def create_client(config: Optional[LLMConfig] = None) -> BaseLLMClient:
-    """Factory function to create appropriate LLM client.
-    
-    Args:
-        config: LLMConfig instance. If None, loads from environment.
-    
-    Returns:
-        Appropriate client instance based on provider.
-    """
-    if config is None:
-        config = LLMConfig.from_env()
-    
-    if config.provider == "ollama":
+def create_client(config: LLMConfig) -> BaseLLMClient:
+    """Create LLM client based on configuration."""
+    if config.provider == "openrouter":
+        return OpenRouterClient(config)
+    elif config.provider == "ollama":
         return OllamaClient(config)
     else:
-        return OpenRouterClient(config)
+        raise ValueError(f"Unknown provider: {config.provider}")

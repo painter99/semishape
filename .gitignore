@@ -60,3 +60,6 @@ output/
 *.stl
 *.step
 !.gitignore
+
+# Vectorstore (can be rebuilt)
+data/vectorstore/

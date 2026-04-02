@@ -12,8 +12,30 @@ import argparse
 import json
 import logging
 import sys
+import os
 from pathlib import Path
 from typing import Optional
+
+# CRITICAL: Set environment variables BEFORE any imports
+# This must happen before any module that might use them
+_a0_env = Path("/a0/usr/.env")
+if _a0_env.exists():
+    with open(_a0_env) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, value = line.split('=', 1)
+                os.environ.setdefault(key.strip(), value.strip())
+
+# Set API key explicitly if not already set
+if 'API_KEY_OPENROUTER' not in os.environ or not os.environ['API_KEY_OPENROUTER']:
+    # Try to read from .env file directly
+    if _a0_env.exists():
+        with open(_a0_env) as f:
+            for line in f:
+                if line.startswith('API_KEY_OPENROUTER='):
+                    os.environ['API_KEY_OPENROUTER'] = line.split('=', 1)[1].strip()
+                    break
 
 PROJECT_ROOT = Path(__file__).parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -32,7 +54,7 @@ logger = logging.getLogger(__name__)
 def cmd_generate(args):
     """Generate build123d code from natural language."""
     ss = SemiShape(
-        model=args.model,
+        model=args.model or 'openai/gpt-4o-mini',
         provider=args.provider,
         language=args.language,
         use_rag=not args.no_rag,
@@ -49,120 +71,71 @@ def cmd_generate(args):
         use_rag=not args.no_rag,
     )
     
-    if args.verbose:
+    if not result.has_errors():
         print("=" * 60)
-        print("RAW RESPONSE:")
-        print("-" * 60)
-        print(result.raw_response[:500] + "..." if len(result.raw_response) > 500 else result.raw_response)
-        print()
+        print("GENERATED CODE:")
+        print("=" * 60)
+        print(result.code)
+        print("=" * 60)
+        if result.rag_sources:
+            print(f"\nUsed {len(result.rag_sources)} RAG contexts")
+    else:
+        print(f"ERROR: {result.error}")
     
-    print("=" * 60)
-    print("GENERATED CODE:")
-    print("-" * 60)
-    print(result.code)
-    print("-" * 60)
-    
-    if result.explanation:
-        print(f"\nEXPLANATION:\n{result.explanation}")
-    
-    if result.warnings:
-        print("\nWARNINGS:")
-        for w in result.warnings:
-            print(f"  - {w}")
-    
-    if result.rag_sources:
-        print("\nRAG SOURCES:")
-        for s in result.rag_sources:
-            print(f"  - {s}")
-    
-    if args.output:
-        output_path = Path(args.output)
-        output_path.write_text(result.code, encoding='utf-8')
-        print(f"\nCode saved to: {output_path}")
-    
-    print(f"\nModel: {result.model}")
-    print(f"Tokens: {result.usage.get('total_tokens', 'N/A')}")
-    
-    return 0 if result.code else 1
+    return 0 if not result.has_errors() else 1
 
 
 def cmd_execute(args):
-    """Execute build123d code and export."""
-    ss = SemiShape()
-    
+    """Execute build123d code."""
+    # Read code from file or argument
     if args.file:
-        code = Path(args.file).read_text(encoding='utf-8')
-        print(f"Executing: {args.file}")
+        code = Path(args.file).read_text()
+    elif args.code:
+        code = args.code
     else:
-        print("Reading code from stdin (Ctrl+D to finish)...")
-        code = sys.stdin.read()
+        print("ERROR: Either --file or --code required")
+        return 1
     
-    print(f"   Export format: {args.format}")
-    print()
-    
-    result = ss.execute(
+    ss = SemiShape()
+    result = ss.execute_code(
         code=code,
-        export_format=args.format,
         timeout=args.timeout,
+        export_format=args.export,
     )
     
-    print("=" * 60)
-    print("EXECUTION RESULT:")
-    print("-" * 60)
-    print(f"Status: {'SUCCESS' if result.success else 'FAILED'}")
+    if not result.has_errors():
+        print("=" * 60)
+        print("EXECUTION SUCCESS")
+        print("=" * 60)
+        if result.output_file:
+            print(f"Output file: {result.output_file}")
+        if result.output:
+            print(f"Output: {result.output}")
+    else:
+        print(f"EXECUTION FAILED: {result.error}")
     
-    if result.stdout:
-        print(f"\nSTDOUT:\n{result.stdout}")
-    
-    if result.stderr:
-        print(f"\nSTDERR:\n{result.stderr}")
-    
-    if result.output_path:
-        print(f"\nOutput file: {result.output_path}")
-    
-    if result.files:
-        print("\nGenerated files:")
-        for f in result.files:
-            print(f"  - {f}")
-    
-    return 0 if result.success else 1
+    return 0 if not result.has_errors() else 1
 
 
 def cmd_rag_search(args):
     """Search build123d documentation."""
-    ss = SemiShape(use_rag=True)
+    ss = SemiShape(language=args.language)
+    results = ss.rag_search(query=args.query, top_k=args.top_k)
     
     print(f"Searching for: {args.query}")
-    print(f"   Top {args.top_k} results")
-    print()
+    print(f"   Top {args.top_k} results\n")
     
-    results = ss.rag_search(
-        query=args.query,
-        top_k=args.top_k,
-        filter_code=args.code_only,
-    )
-    
-    if not results:
-        print("No results found.")
-        return 1
-    
-    for i, r in enumerate(results, 1):
-        if "error" in r:
-            print(f"Error: {r['error']}")
-            return 1
+    for i, doc in enumerate(results, 1):
+        score = doc.metadata.get('distance', 0)
+        source = doc.metadata.get('source', 'unknown')
+        section = doc.metadata.get('section', '')
         
-        print("=" * 60)
-        print(f"Result {i} (score: {r['score']:.3f})")
-        print(f"Source: {r['source']}")
-        if r['section']:
-            print(f"Section: {r['section']}")
+        print(f"{'=' * 60}")
+        print(f"Result {i} (score: {score:.3f})")
+        print(f"Source: {source}")
+        print(f"Section: {section}")
         print("-" * 60)
-        
-        content = r['content']
-        if args.max_length and len(content) > args.max_length:
-            content = content[:args.max_length] + "..."
-        
-        print(content)
+        print(doc.page_content[:500])
         print()
     
     return 0
@@ -170,224 +143,115 @@ def cmd_rag_search(args):
 
 def cmd_interactive(args):
     """Interactive REPL mode."""
+    print("SemiShape Interactive Mode")
+    print("Type 'help' for commands, 'quit' to exit\n")
+    
     ss = SemiShape(
-        model=args.model,
+        model=args.model or 'openai/gpt-4o-mini',
         provider=args.provider,
         language=args.language,
+        use_rag=not args.no_rag,
     )
-    
-    print("\n" + "=" * 60)
-    print("SemiShape Interactive Mode")
-    print("=" * 60)
-    print("\nCommands:")
-    print("  <query>        - Generate build123d code")
-    print("  /execute       - Execute last generated code")
-    print("  /search <q>    - Search documentation")
-    print("  /language <en|cs> - Set language")
-    print("  /help          - Show help")
-    print("  /quit          - Exit")
-    print()
-    
-    last_code = None
-    language = args.language
     
     while True:
         try:
-            user_input = input("\n> ").strip()
-            
-            if not user_input:
+            query = input("semishape> ").strip()
+            if not query:
                 continue
             
-            if user_input.startswith('/'):
-                parts = user_input.split(maxsplit=1)
-                cmd = parts[0].lower()
-                arg = parts[1] if len(parts) > 1 else None
-                
-                if cmd in ('/quit', '/exit'):
-                    print("Goodbye!")
-                    break
-                
-                elif cmd == '/help':
-                    print("\nCommands:")
-                    print("  <query>        - Generate build123d code")
-                    print("  /execute       - Execute last generated code")
-                    print("  /search <q>    - Search documentation")
-                    print("  /language <en|cs> - Set language")
-                    print("  /help          - Show this help")
-                    print("  /quit          - Exit")
-                
-                elif cmd == '/execute':
-                    if not last_code:
-                        print("No code to execute. Generate some code first.")
-                        continue
-                    
-                    print("\nExecuting...")
-                    result = ss.execute(last_code, export_format=args.format)
-                    
-                    if result.success:
-                        print(f"Execution successful!")
-                        if result.output_path:
-                            print(f"Output: {result.output_path}")
-                    else:
-                        print(f"Execution failed:")
-                        print(result.stderr)
-                
-                elif cmd == '/search':
-                    if not arg:
-                        print("Please provide a search query.")
-                        continue
-                    
-                    results = ss.rag_search(arg, top_k=3)
-                    for i, r in enumerate(results, 1):
-                        if "error" in r:
-                            print(f"Error: {r['error']}")
-                            continue
-                        print(f"\n[{i}] {r['source']} (score: {r['score']:.3f})")
-                        print(r['content'][:200] + "...")
-                
-                elif cmd == '/language':
-                    if arg in ('en', 'cs'):
-                        language = arg
-                        print(f"Language set to: {language.upper()}")
-                    else:
-                        print("Use 'en' or 'cs'")
-                
+            if query.lower() in ('quit', 'exit', 'q'):
+                print("Goodbye!")
+                break
+            
+            if query.lower() == 'help':
+                print("""Commands:
+  <query>      - Generate build123d code
+  rag <query>  - Search documentation
+  lang <cs/en>  - Switch language
+  help          - Show this message
+  quit          - Exit
+""")
+                continue
+            
+            if query.lower().startswith('rag '):
+                search_query = query[4:]
+                results = ss.rag_search(search_query)
+                for doc in results:
+                    print(f"\n{doc.page_content[:300]}...\n")
+                continue
+            
+            if query.lower().startswith('lang '):
+                lang = query[5:].strip().lower()
+                if lang in ('cs', 'en'):
+                    ss = SemiShape(language=lang)
+                    print(f"Language: {lang}")
                 else:
-                    print(f"Unknown command: {cmd}")
-                
+                    print("Use 'cs' or 'en'")
                 continue
             
             # Generate code
-            print("\nGenerating...")
-            result = ss.generate_code(user_input, language=language)
-            
-            if result.code:
-                last_code = result.code
-                print("\n" + "=" * 60)
-                print(result.code)
-                print("=" * 60)
-                
-                if result.warnings:
-                    print("Warnings:", ", ".join(result.warnings))
+            result = ss.generate_code(query)
+            if not result.has_errors():
+                print(f"\n{result.code}\n")
             else:
-                print("No code generated.")
-                if result.explanation:
-                    print(result.explanation)
-        
+                print(f"\nERROR: {result.error}\n")
+                
         except KeyboardInterrupt:
             print("\nGoodbye!")
             break
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"ERROR: {e}")
     
     return 0
 
 
-def cmd_run(args):
-    """Generate and execute in one step."""
-    ss = SemiShape(
-        model=args.model,
-        provider=args.provider,
-        language=args.language,
-    )
-    
-    print(f"\nGenerating and executing: {args.query}")
-    print(f"   Language: {args.language.upper()}")
-    print(f"   Export: {args.format}")
-    print()
-    
-    result = ss.generate_and_execute(
-        query=args.query,
-        language=args.language,
-        export_format=args.format,
-        timeout=args.timeout,
-    )
-    
-    print("=" * 60)
-    print("RESULT:")
-    print("-" * 60)
-    print(f"Status: {'SUCCESS' if result.success else 'FAILED'}")
-    
-    if result.code:
-        print("\nCODE:")
-        print("-" * 60)
-        print(result.code[:500] + "..." if len(result.code) > 500 else result.code)
-    
-    if result.output_path:
-        print(f"\nOutput: {result.output_path}")
-    
-    if result.warnings:
-        print("\nWARNINGS:")
-        for w in result.warnings:
-            print(f"  - {w}")
-    
-    print(f"\nGeneration: {result.generation_time:.2f}s")
-    print(f"Execution: {result.execution_time:.2f}s")
-    
-    return 0 if result.success else 1
-
-
 def main():
-    """Main CLI entry point."""
     parser = argparse.ArgumentParser(
-        prog='semishape',
-        description='SemiShape - build123d CAD Code Generation',
+        description="SemiShape - AI CAD Assistant for build123d"
     )
-    
-    subparsers = parser.add_subparsers(dest='command', help='Command to run')
+    subparsers = parser.add_subparsers(dest="command", help="Command")
     
     # Generate command
-    gen_parser = subparsers.add_parser('generate', help='Generate build123d code')
-    gen_parser.add_argument('query', help='Natural language description')
-    gen_parser.add_argument('--language', '-l', default='en', choices=['en', 'cs'])
-    gen_parser.add_argument('--model', '-m', default='openai/gpt-4o-mini')
-    gen_parser.add_argument('--provider', '-p', default='openrouter')
-    gen_parser.add_argument('--output', '-o', help='Output file path')
-    gen_parser.add_argument('--no-rag', action='store_true')
-    gen_parser.add_argument('--verbose', '-v', action='store_true')
+    gen_parser = subparsers.add_parser("generate", help="Generate build123d code")
+    gen_parser.add_argument("query", help="Natural language description")
+    gen_parser.add_argument("--language", "-l", default="cs", choices=["cs", "en"],
+                           help="Language (cs/en)")
+    gen_parser.add_argument("--model", "-m", default=None, help="Model name")
+    gen_parser.add_argument("--provider", "-p", default="openrouter", help="LLM provider")
+    gen_parser.add_argument("--no-rag", action="store_true", help="Disable RAG")
     gen_parser.set_defaults(func=cmd_generate)
     
     # Execute command
-    exec_parser = subparsers.add_parser('execute', help='Execute build123d code')
-    exec_parser.add_argument('file', nargs='?', help='Python file to execute')
-    exec_parser.add_argument('--format', '-f', default='stl', choices=['stl', 'step'])
-    exec_parser.add_argument('--timeout', '-t', type=int, default=60)
+    exec_parser = subparsers.add_parser("execute", help="Execute build123d code")
+    exec_parser.add_argument("--file", "-f", help="Code file")
+    exec_parser.add_argument("--code", "-c", help="Code string")
+    exec_parser.add_argument("--timeout", "-t", type=int, default=60, help="Timeout")
+    exec_parser.add_argument("--export", "-e", default="stl", help="Export format")
     exec_parser.set_defaults(func=cmd_execute)
     
     # RAG search command
-    rag_parser = subparsers.add_parser('rag-search', help='Search documentation')
-    rag_parser.add_argument('query', help='Search query')
-    rag_parser.add_argument('--top-k', '-k', type=int, default=5)
-    rag_parser.add_argument('--code-only', '-c', action='store_true')
-    rag_parser.add_argument('--max-length', type=int, default=500)
+    rag_parser = subparsers.add_parser("rag-search", help="Search documentation")
+    rag_parser.add_argument("query", help="Search query")
+    rag_parser.add_argument("--top-k", "-k", type=int, default=3, help="Results")
+    rag_parser.add_argument("--language", "-l", default="cs", help="Language")
     rag_parser.set_defaults(func=cmd_rag_search)
     
-    # Run command (generate and execute)
-    run_parser = subparsers.add_parser('run', help='Generate and execute')
-    run_parser.add_argument('query', help='Natural language description')
-    run_parser.add_argument('--language', '-l', default='en', choices=['en', 'cs'])
-    run_parser.add_argument('--format', '-f', default='stl', choices=['stl', 'step'])
-    run_parser.add_argument('--model', '-m', default='openai/gpt-4o-mini')
-    run_parser.add_argument('--provider', '-p', default='openrouter')
-    run_parser.add_argument('--timeout', '-t', type=int, default=60)
-    run_parser.set_defaults(func=cmd_run)
-    
-    # Interactive command
-    int_parser = subparsers.add_parser('interactive', help='Interactive REPL')
-    int_parser.add_argument('--language', '-l', default='en', choices=['en', 'cs'])
-    int_parser.add_argument('--model', '-m', default='openai/gpt-4o-mini')
-    int_parser.add_argument('--provider', '-p', default='openrouter')
-    int_parser.add_argument('--format', '-f', default='stl')
+    # Interactive mode
+    int_parser = subparsers.add_parser("interactive", help="Interactive mode")
+    int_parser.add_argument("--language", "-l", default="cs", help="Language")
+    int_parser.add_argument("--model", "-m", default=None, help="Model")
+    int_parser.add_argument("--provider", "-p", default="openrouter", help="Provider")
+    int_parser.add_argument("--no-rag", action="store_true", help="Disable RAG")
     int_parser.set_defaults(func=cmd_interactive)
     
     args = parser.parse_args()
     
-    if args.command is None:
+    if not args.command:
         parser.print_help()
         return 1
     
     return args.func(args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())
