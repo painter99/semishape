@@ -1,0 +1,78 @@
+Use the uploaded hand-drawn mechanical sketch as the authoritative source and convert it into a professional ISO-style mechanical engineering drawing.
+
+Primary objective:
+Create a clean, formal, standardized 2D mechanical drawing sheet that looks like it was prepared by an experienced CAD drafter from an imperfect hand sketch.
+
+Source interpretation rules:
+- Read the sketch and all handwritten notes, labels, arrows, dimensions, symbols, and descriptions around it as engineering evidence.
+- Preserve all geometry, proportions, feature positions, relationships between views, and design intent that are clearly present.
+- If parts of the sketch are incomplete, unclear, inconsistent, or missing, infer the missing information conservatively from:
+  1. visible geometry,
+  2. handwritten notes,
+  3. symmetry,
+  4. repeated features or patterns,
+  5. standard machinable forms,
+  6. normal mechanical drafting logic,
+  7. standard ISO drawing conventions.
+- Complete only what is strongly implied.
+- If exact values are not explicitly supported, do not invent precise dimensions, tolerances, threads, fits, or manufacturing notes.
+- When uncertainty remains, choose the simplest mechanically reasonable interpretation and keep the result professional and manufacturable.
+
+Drawing style and output:
+- Produce a precise orthographic mechanical drawing on a clean white sheet.
+- Use crisp black CAD-like linework only.
+- No sketch texture, paper texture, shadows, photorealism, painterly effects, decorative graphics, branding, watermark, or artistic stylization.
+- Normalize rough hand-drawn geometry into precise mechanical geometry without changing the part design.
+
+Apply ISO-style drafting conventions:
+- visible edges: continuous thick lines
+- hidden edges: thin dashed lines
+- centerlines and axes: thin chain lines
+- dimension lines, extension lines, leaders, and hatching: thin lines
+- section hatching only where logically necessary
+- clear line-weight hierarchy
+- clean spacing
+- accurate view alignment
+- balanced sheet composition
+
+Mechanical drawing requirements:
+- Establish the main/front view from the sketch’s primary view.
+- Add aligned top, side, section, or detail views only when clearly supported by the sketch or needed to express the part correctly.
+- Add center marks for holes, bores, shafts, circular features, and symmetry where appropriate.
+- Standardize circles, arcs, fillets, chamfers, slots, steps, and hole patterns into precise drafting geometry.
+- Preserve all clearly indicated holes, cutouts, radii, chamfers, steps, axes, and repeated features.
+- Use millimeters unless another unit is explicitly indicated.
+- Include dimensions only when they are explicitly present or can be reliably derived from the handwritten notes or obvious geometric intent.
+- Do not fabricate unsupported numeric dimensions.
+
+Text handling:
+- Convert handwritten notes into clean, legible technical annotations.
+- Preserve important engineering notes, but standardize wording into concise formal drafting language.
+- Keep text minimal, precise, and readable.
+- Do not add random labels, fake standards references, fake part numbers, or extra notes.
+
+Sheet formatting:
+- Include a clean drawing border.
+- Include a professional title block in the bottom-right corner.
+- Title block fields:
+  DRAWING TITLE
+  PART / ITEM
+  SCALE
+  DATE
+  REV
+  UNIT: mm
+- Include a projection symbol if appropriate.
+- Include a scale note if appropriate.
+
+Critical constraints:
+- preserve the original mechanical design intent
+- preserve the relative location and size relationships of all major features
+- preserve clearly shown geometry exactly
+- infer only what is strongly implied
+- do not creatively redesign the part
+- do not add unsupported components or features
+- do not output a concept sketch or presentation board
+- do not use perspective unless absolutely necessary to normalize the sketch into orthographic form
+
+Final quality target:
+The final image must look like a professional, standards-aware, workshop-ready mechanical technical drawing created from a rough hand sketch and handwritten shop notes, with conservative engineering completion and no speculative invention.
