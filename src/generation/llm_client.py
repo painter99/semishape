@@ -12,8 +12,23 @@ import logging
 from typing import Optional, Dict, Any, List, Generator
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
-import requests
+from pathlib import Path
 
+# Load environment variables from .env files
+try:
+    from dotenv import load_dotenv
+    # Load from project .env first
+    project_env = Path(__file__).parent.parent.parent / ".env"
+    if project_env.exists():
+        load_dotenv(project_env)
+    # Load from Agent Zero .env (contains API keys)
+    a0_env = Path("/a0/usr/.env")
+    if a0_env.exists():
+        load_dotenv(a0_env, override=True)
+except ImportError:
+    pass  # dotenv not available, rely on system env
+
+import requests
 logger = logging.getLogger(__name__)
 
 
