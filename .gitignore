@@ -41,11 +41,12 @@ env/
 Thumbs.db
 
 # Logs
-*.log
 logs/
+data/logs/
 
 # Python
 __pycache__/
+*.pyc
 *.py[cod]
 *.pyo
 .pytest_cache/
@@ -55,11 +56,14 @@ __pycache__/
 .vscode/
 .idea/
 
-# Output files
-output/
+# Output files - keep .gitkeep only
+output/*
 *.stl
 *.step
-!.gitignore
+!output/.gitkeep
+
+# Data metrics
+data/metriky.json
 
 # Vectorstore (can be rebuilt)
 data/vectorstore/
