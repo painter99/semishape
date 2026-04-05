@@ -190,33 +190,44 @@ ss.vygeneruj(drzak, uloz_jako="drzak_m3")
 
 ---
 
-## Integrace s Agent Zero
+## Integrace s Agent Zero / Agent Zero Integration
 
-SemiShape lze použít jako skill v Agent Zero frameworku:
+SemiShape je dostupný jako **plugin pro Agent Zero** framework:
 
-1. Přidej repozitář do Agent Zero
-2. V Telegram botovi můžeš používat: `@semishape vytvoř model ...`
+### Rychlý start / Quick Start
 
-## Monitoring
+```
+# 1. Generování kódu / Generate code
+@semishape_generate query="Vytvoř držák s 4 dírami M3" language="cs"
 
-SemiShape automaticky sleduje a ukládá metriky každého generování:
-
-```python
-from jadro.hlavni import SemiShape
-
-ss = SemiShape(jazyk="cs")
-vysledek = ss.vygeneruj("Vytvoř krychli 50mm")
-
-# Zobrazení metrik
-print(f"Tokeny: {vysledek.tokeny_vstup}/{vysledek.tokeny_vystup}")
-print(f"Cena: ${vysledek.cena_usd:.4f}")
-print(f"Latence: {vysledek.latence_s:.2f}s")
-
-# Uložení metrik
-ss.uloz_metriky("moje_metriky.json")
+# 2. Export do STL / Export to STL
+@semishape_execute code="$semishape_generate.response.cad_code" output_format="stl"
 ```
 
-Metriky lze sledovat pro optimalizaci nákladů a výkonu.
+### Dokumentace pluginu / Plugin Documentation
+
+- **[README_PLUGIN.md](README_PLUGIN.md)** - Kompletní dokumentace nástrojů / Complete tool documentation
+- **[AGENT_ZERO_INTEGRATION.md](AGENT_ZERO_INTEGRATION.md)** - Podrobný návod integrace / Detailed integration guide
+
+### Dostupné nástroje / Available Tools
+
+| Nástroj / Tool | Popis / Description |
+|----------------|---------------------|
+| `@semishape_generate` | Generování build123d kódu / Generate build123d code |
+| `@semishape_execute` | Spuštění a export / Execute and export |
+| `@semishape_rag_search` | Vyhledávání v dokumentaci / Search documentation |
+
+### Rozdíly mezi režimy / Mode Differences
+
+| Režim / Mode | Použití / Usage | Pro koho / For |
+|--------------|-----------------|----------------|
+| **Standalone** | `python -m jadro.hlavni` | Lokální vývoj / Local development |
+| **Agent Zero Plugin** | `@semishape_generate` | AI asistenti / AI agents |
+| **Skill-only** | `skills.semishape` | Jednoduché úlohy / Simple tasks |
+
+---
+
+## Monitoring
 
 ---
 

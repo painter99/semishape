@@ -97,3 +97,26 @@ requirements:
 entry_points:
   initialize: initialize.py
   hooks: hooks.py
+
+# Tool registrations for Agent Zero
+tools:
+  semishape_generate:
+    title: Generate CAD Code
+    description: Generate build123d Python code from text description
+    file: tools/semishape_generate.py
+    class: SemishapeGenerate
+    settings_section: api
+    
+  semishape_execute:
+    title: Execute CAD Code
+    description: Execute Python code and export to STL/STEP
+    file: tools/semishape_execute.py
+    class: SemishapeExecute
+    settings_section: paths
+    
+  semishape_rag_search:
+    title: Search Documentation
+    description: Search build123d documentation using RAG
+    file: tools/semishape_rag_search.py
+    class: SemishapeRagSearch
+    settings_section: api

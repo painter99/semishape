@@ -1,17 +1,51 @@
+---
+name: semishape-cad
+version: 0.2.0
+description: AI-powered CAD model generation using build123d library. Transforms text descriptions into 3D parametric CAD models with STL/STEP export support.
+triggers:
+  - generate CAD model
+  - create 3D model
+  - build123d code
+  - semishape code
+  - CAD generation
+  - STL export
+  - STEP export
+allowed_tools:
+  - semishape_generate
+  - semishape_execute
+  - semishape_rag_search
+metadata:
+  complexity: high
+  category: cad
+  language_support:
+    - cs
+    - en
+  frameworks:
+    - build123d
+    - OpenCASCADE
+  export_formats:
+    - STL
+    - STEP
+  llm_provider: openrouter
+  models:
+    - moonshotai/kimi-k2.5
+    - minimax/minimax-01
+---
+
 # SemiShape - build123d CAD Code Generation Skill
 
 > **"Almost a shape. Mostly suggestion."**
 
 ## Overview
 
-SemiShape is an Agent-Zero skill that provides AI-assisted parametric CAD code generation using the build123d Python library. It combines:
+SemiShape is an Agent Zero skill that provides AI-assisted parametric CAD code generation using the build123d Python library. It combines:
 
 - **RAG-powered documentation retrieval** - Semantic search through build123d documentation
 - **LLM-based code generation** - Natural language to parametric CAD code
 - **Code execution sandbox** - Safe execution of generated build123d code
 - **STL/STEP export** - Export generated models to standard formats
 
-This skill enables Agent-Zero to generate, execute, and export build123d CAD models from natural language descriptions.
+This skill enables Agent Zero to generate, execute, and export build123d CAD models from natural language descriptions.
 
 ## Capabilities
 
@@ -24,6 +58,11 @@ Generate build123d Python code from natural language descriptions.
 - Conservative inference (no unexpected features)
 - RAG-enhanced documentation context
 
+**Usage:**
+```
+@semishape_generate query="Create a 100mm cube with a 10mm hole" language="en"
+```
+
 ### 2. Code Execution (`semishape_execute`)
 Execute build123d code in a safe sandbox environment.
 
@@ -33,6 +72,11 @@ Execute build123d code in a safe sandbox environment.
 - Automatic STL/STEP file detection
 - Output capture and error handling
 
+**Usage:**
+```
+@semishape_execute code="..." output_format="stl"
+```
+
 ### 3. RAG Search (`semishape_rag_search`)
 Search build123d documentation using semantic similarity.
 
@@ -41,15 +85,30 @@ Search build123d documentation using semantic similarity.
 - Code examples
 - Source file references
 
-### 4. Complete Workflow (`semishape_generate_and_execute`)
-End-to-end workflow: generate code, execute it, and export the result.
+**Usage:**
+```
+@semishape_rag_search query="How to create a sketch?" limit=5
+```
+
+### 4. Complete Workflow
+End-to-end workflow using multiple tools: generate code, then execute for export.
+
+**Example:**
+```
+# Generate code first
+@semishape_generate query="Vytvoř držák na kabely" language="cs"
+
+# Then execute the generated code
+@semishape_execute code="$semishape_generate.result.cad_code" output_format="stl"
+```
 
 ## Installation
 
 ### Prerequisites
 
+Ensure the SemiShape project is active and dependencies are installed:
+
 ```bash
-# Activate the SemiShape project
 cd /a0/usr/projects/semishape
 source .venv/bin/activate  # or create one: python -m venv .venv && source .venv/bin/activate
 
@@ -69,20 +128,38 @@ python scripts/build_vectorstore.py
 Set up environment variables:
 
 ```bash
-# In /a0/usr/.env
+# In /a0/usr/.env or via Agent Zero secrets
 API_KEY_OPENROUTER=your_openrouter_key
 # Or for local LLM
-# LLM_PROVIDER=ollama
-# LLM_MODEL=llama3.2
+LLM_PROVIDER=ollama
+LLM_MODEL=llama3.2
 ```
 
 ## Usage
 
-### As Agent-Zero Skill
+### In Agent Zero with Plugin
 
-The skill is automatically available when the project is active. Use the skill tools:
+When the SemiShape plugin is active, use `@` tool invocations:
 
 ```
+# Generate build123d code
+@semishape_generate query="Create a 100mm cube with a 10mm hole" language="en"
+
+# Execute generated code
+@semishape_execute code="..." output_format="stl"
+
+# Search documentation
+@semishape_rag_search query="How to create a sketch?"
+
+# Complete workflow
+@semishape_generate query="Vytvoř držák s 4 dírami" language="cs"
+```
+
+### As Agent Zero Skill (Legacy Mode)
+
+If using as skill only (without plugin), the tools are available via skill loader:
+
+```python
 # Generate build123d code
 semishape_generate(query="Create a 100mm cube with a 10mm hole", language="en")
 
@@ -91,9 +168,6 @@ semishape_execute(code="...")
 
 # Search documentation
 semishape_rag_search(query="How to create a sketch?")
-
-# Complete workflow
-semishape_generate_and_execute(query="Vytvoř držák na kabely", language="cs")
 ```
 
 ### As Python Module
@@ -146,7 +220,17 @@ python -m src.cli interactive
 
 ```
 /a0/usr/projects/semishape/
+├── plugin.yaml                  # Agent Zero plugin configuration
 ├── skills/semishape/SKILL.md    # This file
+├── tools/                        # Agent Zero tool implementations
+│   ├── semishape_generate.py
+│   ├── semishape_execute.py
+│   └── semishape_rag_search.py
+├── helpers/semishape_client.py   # Shared client implementation
+├── prompts/                      # Prompt templates
+│   ├── agent.system.tool.semishape_generate.md
+│   ├── agent.system.tool.semishape_execute.md
+│   └── agent.system.tool.semishape_rag_search.md
 ├── src/
 │   ├── semishape.py            # Main entry point
 │   ├── cli.py                  # CLI interface
@@ -162,140 +246,157 @@ python -m src.cli interactive
 
 ## Examples
 
-### English Query
+### English Query with Plugin
 
-```python
-result = ss.generate_and_execute(
-    "Create a mounting bracket with:
-     - 100mm x 50mm x 10mm base
-     - Four 5mm mounting holes in corners
-     - 2mm fillet on all edges"
-)
+```
+@semishape_generate query="Create a mounting bracket with:
+ - 100mm x 50mm x 10mm base
+ - Four 5mm mounting holes in corners
+ - 2mm fillet on all edges" language="en"
 ```
 
-### Czech Query
+### Czech Query with Plugin
 
-```python
-result = ss.generate_and_execute(
-    "Vytvoř držák na kabely:
-     - Průměr 20mm
-     - Výška 30mm
-     - Otvor pro přišroubování",
-    language="cs"
-)
+```
+@semishape_generate query="Vytvoř držák na kabely:
+ - Průměr 20mm
+ - Výška 30mm
+ - Otvor pro přišroubování" language="cs"
 ```
 
 ### With RAG Context
 
-```python
-# Search documentation first
-docs = ss.rag_search("How to create a sketch on a face?")
+```
+# Search documentation first for specific patterns
+@semishape_rag_search query="How to create a sketch on a face?"
 
-# Generate with context
-result = ss.generate_code(
-    "Create a sketch on the top face of a box and extrude a cylinder",
-    use_rag=True
-)
+# Generate with context - the generator uses RAG internally
+@semishape_generate query="Create a sketch on the top face of a box and extrude a cylinder" language="en"
 ```
 
-## Output Formats
+### Complete Workflow
 
-### Generated Code Result
+```
+# 1. Generate the code
+@semishape_generate query="Create a parametric gear with 20 teeth and 50mm diameter" language="en"
 
-```python
-@dataclass
-class GeneratedCode:
-    code: str              # build123d Python code
-    explanation: str       # Natural language explanation
-    raw_response: str      # Full LLM response
-    model: str             # Model used
-    usage: dict            # Token usage
-    warnings: list         # Validation warnings
-    rag_sources: list      # RAG documentation sources
+# 2. Execute and export
+@semishape_execute code="$semishape_generate.response.cad_code" output_format="stl" output_name="gear_20t"
+
+# Result: STL file exported to output/ directory
 ```
 
-### Execution Result
+## Tool Reference
 
-```python
-@dataclass
-class ExecutionResult:
-    success: bool          # Execution status
-    stdout: str            # Standard output
-    stderr: str            # Error output
-    output_path: str       # Path to generated STL/STEP
-    files: list           # List of generated files
-    execution_time: float  # Time in seconds
+### @semishape_generate
+
+Generates build123d CAD code from natural language description.
+
+**Parameters:**
+- `query` (string, required): Description of the CAD model to create
+- `language` (string, optional): Language of the query (`"en"` or `"cs"`, default: `"en"`)
+- `use_rag` (boolean, optional): Whether to use RAG documentation context (default: `true`)
+
+**Returns:**
+```json
+{
+  "cad_code": "from build123d import...",
+  "warnings": ["..."],
+  "model_used": "moonshotai/kimi-k2.5",
+  "confidence": 0.95
+}
+```
+
+### @semishape_execute
+
+Executes build123d code and exports to STL/STEP.
+
+**Parameters:**
+- `code` (string, required): Python build123d code to execute
+- `output_format` (string, optional): Export format (`"stl"` or `"step"`, default: `"stl"`)
+- `output_name` (string, optional): Base name for output file (default: auto-generated)
+- `timeout` (integer, optional): Execution timeout in seconds (default: `60`)
+
+**Returns:**
+```json
+{
+  "success": true,
+  "output_file": "output/model.stl",
+  "execution_time": 3.5,
+  "stdout": "..."
+}
+```
+
+### @semishape_rag_search
+
+Searches build123d documentation using semantic similarity.
+
+**Parameters:**
+- `query` (string, required): Search query
+- `limit` (integer, optional): Number of results (default: `5`)
+- `threshold` (float, optional): Similarity threshold 0-1 (default: `0.7`)
+
+**Returns:**
+```json
+{
+  "results": [
+    {
+      "text": "...",
+      "source": "docs/building_blocks.rst",
+      "score": 0.89
+    }
+  ],
+  "total_found": 5
+}
 ```
 
 ## Error Handling
 
-The skill provides helpful error messages:
+Common errors and solutions:
 
-```python
-result = ss.generate_code("Create something impossible")
-if result.has_errors():
-    print("Warnings:", result.warnings)
-    # Warnings: ['Missing build123d import', 'Consider defining dimensions as variables']
-```
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `ImportError: build123d` | Library not installed | Run `pip install build123d` |
+| `No module named 'chromadb'` | RAG dependencies missing | Run `pip install chromadb sentence-transformers` |
+| `API key error` | Missing OpenRouter key | Set `API_KEY_OPENROUTER` in .env |
+| `Empty RAG results` | Vectorstore not built | Run `python scripts/build_vectorstore.py` |
+| `Execution timeout` | Code too complex | Increase timeout or simplify model |
 
-```python
-result = ss.execute(code)
-if not result.success:
-    print("Error:", result.stderr)
-    # Error: NameError: name 'Box' is not defined
-```
+## Bilingual Support
+
+SemiShape supports both Czech and English:
+
+**Czech (`language="cs")`:**
+- Optimized tokenization for Czech engineering terms
+- Localized error messages in output
+- Czech prompt templates from `prompts/cs/`
+
+**English (`language="en")`:**
+- Full documentation coverage
+- GPT-4 optimized prompts
+- Industry-standard terminology
 
 ## Best Practices
 
-### Parametric Design
-Always define dimensions as variables:
-
-```python
-# Good
-WIDTH = 100.0
-HEIGHT = 50.0
-with BuildPart() as part:
-    Box(WIDTH, HEIGHT, 10)
-
-# Avoid
-with BuildPart() as part:
-    Box(100, 50, 10)  # Magic numbers!
-```
-
-### Robust Selectors
-Use geometric selectors instead of fragile index-based selections:
-
-```python
-# Good
-top_face = part.faces().sort_by(Axis.Z).last
-
-# Avoid
-top_face = part.faces()[0]  # Fragile!
-```
-
-### Builder Mode
-Use modern Builder Mode context managers:
-
-```python
-# Good
-with BuildPart() as part:
-    Box(100, 50, 10)
-
-# Avoid
-part = Box(100, 50, 10)
-```
+1. **Use specific dimensions**: "50mm" instead of "small"
+2. **Describe features clearly**: "four mounting holes" instead of "some holes"
+3. **Use RAG for complex features**: Enable `use_rag=true` for advanced operations
+4. **Validate output**: Always check generated code before manufacturing
+5. **Start simple**: Test with simple primitives before complex assemblies
 
 ## License
 
-Apache License 2.0 - See project LICENSE file.
+Apache 2.0 - See [LICENSE](../../LICENSE)
+
+## Author
+
+**Pavel Mareš** ([painter99](https://github.com/painter99))
+
+---
+
+> ⚠️ **Disclaimer**: SemiShape is an unofficial community tool. It is not affiliated with, sponsored by, or endorsed by the build123d core team. AI-generated CAD code requires manual review. Always verify geometry and engineering constraints before manufacturing.
 
 ## Attribution
 
-SemiShape is powered by:
-- [build123d](https://github.com/gumyr/build123d) - Python parametric CAD library
-- [Agent Zero](https://github.com/agent0ai/agent-zero) - AI agent framework
-
-## Support
-
-- GitHub Issues: [painter99/semishape](https://github.com/painter99/semishape)
-- Agent Zero Discord: [discord.gg/B8KZKNsPpj](https://discord.gg/B8KZKNsPpj)
+> Maitland, R. (2025). _build123d: A Python-based parametric CAD library_ (v0.10.0).
+> DOI: [10.5281/zenodo.17537673](https://doi.org/10.5281/zenodo.17537673)
