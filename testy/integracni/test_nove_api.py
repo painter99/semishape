@@ -47,9 +47,8 @@ def test_struktura_projektu():
         "jadro/hlavni.py",
         "jadro/modely/prepinac.py",
         "jadro/kontrola/syntax.py",
-        "nastaveni/modely.yaml",
-        "spusteni/sandbox.py",
-        "spusteni/exporter.py",
+        "src/execution/sandbox.py",
+        "src/execution/exporter.py",
     ]
     
     for soubor in pozadovane:
