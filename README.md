@@ -102,32 +102,39 @@ python -m jadro.hlavni "Create a box 50x30x10mm" --jazyk en
 
 ```
 semishape/
-├── jadro/                  # Hlavní logika
+├── jadro/                  # Hlavní logika v0.2.0
 │   ├── hlavni.py          # Hlavní API
 │   ├── modely/
 │   │   └── prepinac.py    # Přepínání Kimi/Minimax
 │   ├── kontrola/
 │   │   └── syntax.py      # Kontrola a oprava kódu
-│   └── ...
+│   ├── vyhledavani/       # Web search + GitHub monitor
+│   └── dovednosti/        # Skills loader
 │
 ├── nastaveni/
 │   └── modely.yaml        # Nastavení AI modelů
 │
-├── spusteni/              # Spuštění kódu a export
-│   ├── sandbox.py         # Bezpečné spuštění
-│   └── exporter.py        # STL export
+├── src/                   # Legacy kód (používáno jádrem)
+│   ├── semishape.py       # Základní API
+│   ├── generation/        # LLM inference, prompty
+│   ├── execution/         # Sandbox + exporter
+│   └── rag/               # Vector store + retrieval
 │
-├── src/                   # Původní kód (zpětná kompatibilita)
-│   ├── generation/        # LLM, RAG
-│   ├── execution/
-│   └── rag/
+├── helpers/               # Agent Zero plugin klient
+│   └── semishape_client.py
 │
+├── tools/                 # Agent Zero tools
+│   ├── semishape_generate.py
+│   ├── semishape_execute.py
+│   └── semishape_rag_search.py
+│
+├── prompts/               # System prompty pro tools
+├── skills/                # Agent Zero skills
 ├── data/                  # Dokumentace build123d (605 souborů)
-├── vystupy/               # Vygenerované STL soubory
+├── output/                # Vygenerované STL soubory
 ├── priklady/              # Ukázkové použití
 └── testy/                 # Testy
 ```
-
 ---
 
 ## Jak to funguje
