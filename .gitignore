@@ -64,6 +64,13 @@ output/*
 
 # Data metrics
 data/metriky.json
+# Data metrics
+data/metriky.json
 
 # Vectorstore (can be rebuilt)
 data/vectorstore/
+
+# Plugin data
+data/cache/
+data/logs/*.log
+config.json

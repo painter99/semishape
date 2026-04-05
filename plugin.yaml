@@ -1,0 +1,99 @@
+# SemiShape Plugin for Agent Zero
+# AI-powered CAD model generation using build123d library
+
+name: semishape
+title: SemiShape CAD Generator
+version: 0.2.0
+description: AI-powered CAD model generation using build123d library. Transforms text descriptions into 3D parametric CAD models with STL/STEP export support.
+author: painter99
+categories:
+  - cad
+  - 3d-modeling
+  - ai-generation
+
+# Per-project configuration for API keys and paths
+per_project_config: true
+
+# Settings sections for Agent Zero integration
+settings_sections:
+  api:
+    title: API Configuration
+    description: LLM API settings for code generation
+    settings:
+      - name: openrouter_api_key
+        type: secret
+        description: OpenRouter API key for LLM access
+        required: true
+      - name: default_model
+        type: string
+        description: Default LLM model for CAD generation
+        default: moonshotai/kimi-k2.5
+        options:
+          - moonshotai/kimi-k2.5
+          - minimax/minimax-01
+          - deepseek/deepseek-chat
+      - name: backup_model
+        type: string
+        description: Fallback model when primary fails
+        default: minimax/minimax-01
+        
+  paths:
+    title: Paths and Directories
+    description: Output and cache directory configuration
+    settings:
+      - name: output_dir
+        type: path
+        description: Directory for generated STL/STEP files
+        default: ./output
+      - name: cache_dir
+        type: path
+        description: Directory for RAG cache and temporary files
+        default: ./data/cache
+      - name: vectorstore_path
+        type: path
+        description: ChromaDB vectorstore location
+        default: ./data/vectorstore
+        
+  models:
+    title: Model Generation Settings
+    description: LLM inference parameters for CAD code generation
+    settings:
+      - name: temperature
+        type: float
+        description: LLM temperature (creativity vs consistency)
+        default: 0.2
+        min: 0.0
+        max: 1.0
+      - name: max_tokens
+        type: integer
+        description: Maximum tokens per generation
+        default: 4096
+        min: 1024
+        max: 8192
+      - name: top_p
+        type: float
+        description: Nucleus sampling parameter
+        default: 0.95
+        min: 0.0
+        max: 1.0
+      - name: seed_coverage_threshold
+        type: float
+        description: Minimum seed coverage for training validation
+        default: 0.30
+        min: 0.0
+        max: 1.0
+
+# Plugin dependencies
+requirements:
+  - build123d>=0.10.0
+  - chromadb>=0.5.0
+  - openai>=1.0.0
+  - duckduckgo-search>=3.0.0
+  - requests>=2.31.0
+  - pyyaml>=6.0
+  - sentence-transformers>=2.0.0
+
+# Plugin entry points
+entry_points:
+  initialize: initialize.py
+  hooks: hooks.py
