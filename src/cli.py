@@ -54,7 +54,7 @@ logger = logging.getLogger(__name__)
 def cmd_generate(args):
     """Generate build123d code from natural language."""
     ss = SemiShape(
-        model=args.model or 'openai/gpt-4o-mini',
+        model=args.model or 'minimax/minimax-m2.7',
         provider=args.provider,
         language=args.language,
         use_rag=not args.no_rag,
@@ -147,7 +147,7 @@ def cmd_interactive(args):
     print("Type 'help' for commands, 'quit' to exit\n")
     
     ss = SemiShape(
-        model=args.model or 'openai/gpt-4o-mini',
+        model=args.model or 'minimax/minimax-m2.7',
         provider=args.provider,
         language=args.language,
         use_rag=not args.no_rag,

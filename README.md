@@ -197,18 +197,70 @@ SemiShape lze použít jako skill v Agent Zero frameworku:
 1. Přidej repozitář do Agent Zero
 2. V Telegram botovi můžeš používat: `@semishape vytvoř model ...`
 
+## Monitoring
+
+SemiShape automaticky sleduje a ukládá metriky každého generování:
+
+```python
+from jadro.hlavni import SemiShape
+
+ss = SemiShape(jazyk="cs")
+vysledek = ss.vygeneruj("Vytvoř krychli 50mm")
+
+# Zobrazení metrik
+print(f"Tokeny: {vysledek.tokeny_vstup}/{vysledek.tokeny_vystup}")
+print(f"Cena: ${vysledek.cena_usd:.4f}")
+print(f"Latence: {vysledek.latence_s:.2f}s")
+
+# Uložení metrik
+ss.uloz_metriky("moje_metriky.json")
+```
+
+Metriky lze sledovat pro optimalizaci nákladů a výkonu.
+
+---
+
+## Web Search
+
+SemiShape podporuje vyhledávání aktuální dokumentace build123d přímo z webu:
+
+```python
+from jadro.vyhledavani.web_search import vyhledat_dokumentaci
+
+# Vyhledání nejnovější dokumentace
+vysledky = vyhledat_dokumentaci("Box build123d examples")
+for vysledek in vysledky:
+    print(f"{vysledek['title']}: {vysledek['href']}")
+```
+
+Nebo pomocí GitHub monitoringu pro sledování nových commitů:
+
+```python
+from jadro.vyhledavani.github_monitor import GithubMonitor
+
+monitor = GithubMonitor()
+novinky = monitor.ziskej_nove_commity(limit=5)
+```
+
+---
+
+## Skills (Dovednosti)
+
+SemiShape může fungovat jako skill v rámci Agent Zero:
+
+```python
+# Načtení dovednosti
+from jadro.dovednosti.loader import nacti_dovednosti
+dovednosti = nacti_dovednosti()
+
+# Použití dovednosti
+from skills.semishape.SKILL import vygeneruj_model
+vygeneruj_model("Vytvoř válec 30mm")
+```
+
 ---
 
 ## Poznámky k vývoji
-
-Tento projekt vzniká jako praktická aplikace učení:
-- **Python** programování
-- **AI/ML** integrace
-- **CAD** modelování
-- **Linux** administrace
-
----
-
 ## Licence
 
 Apache 2.0 - viz [LICENSE](LICENSE)

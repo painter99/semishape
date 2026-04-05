@@ -177,7 +177,7 @@ with BuildPart() as part:
 2. Provide the complete, runnable Python code in a code block
 3. Include brief comments for clarity
 4. If any dimensions are unclear, note them with TODO comments
-
+5. **DO NOT include any export code (export_stl, export_step, etc.) - export is handled automatically**
 ## Error Handling
 
 If the request is ambiguous:
@@ -255,8 +255,24 @@ with BuildPart() as part:
 2. Poskytněte kompletní, spustitelný Python kód v bloku kódu
 3. Zahrňte stručné komentáře pro přehlednost
 4. Pokud jsou rozměry nejasné, označte je TODO komentáři
+5. **NEPŘIDÁVEJTE žádný export kód!** Nepoužívejte `export_stl`, `export_step`, `part.part.export_*` ani žádné jiné export příkazy. Export je zajištěn automaticky systémem.
 
-## Zpracování chyb
+## Příklad SPRÁVNÉHO kódu:
+```python
+from build123d import *
+
+# Parametry modelu
+WIDTH = 50.0
+HEIGHT = 30.0
+DEPTH = 10.0
+
+# Vytvoření modelu
+with BuildPart() as part:
+    Box(WIDTH, HEIGHT, DEPTH)
+
+# POZOR: Nepřidávejte žádný export kód!
+# Export je proveden automaticky systémem.
+```
 
 Pokud je požadavek nejednoznačný:
 - Udělejte rozumný předpoklad

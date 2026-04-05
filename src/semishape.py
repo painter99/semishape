@@ -304,13 +304,75 @@ class SemiShape:
             ExecutionResultAdapter with output files
         """
         import time
+        import re
+        import uuid
         from src.execution import ModelExporter
         
         start_time = time.time()
         
+        # CRITICAL: Strip any export code from generated code
+        # Models sometimes ignore prompt rules and generate export code
+        export_patterns = [
+            r'\n*part\.part\.export\w*\([^)]*\)',
+            r'\n*part\.export\w*\([^)]*\)',
+            r'\n*export_stl\([^)]*\)',
+            r'\n*export_step\([^)]*\)',
+            r'\n*\.export_stl\([^)]*\)',
+            r'\n*\.export_step\([^)]*\)',
+        ]
+        cleaned_code = code
+        for pattern in export_patterns:
+            cleaned_code = re.sub(pattern, '', cleaned_code, flags=re.IGNORECASE)
+        
+        # Generate unique filename
+        model_id = str(uuid.uuid4())[:8]
+        output_filename = f"model_{model_id}.{export_format}"
+        output_filepath = self.output_path / output_filename
+        
+        # Add automatic export code
+        export_code = f'''
+
+# Auto-generated export code
+from pathlib import Path
+try:
+    from build123d import export_stl, export_step
+    
+    # Find BuildPart and export its .part attribute
+    _exported = False
+    for _name, _obj in list(locals().items()):
+        if _name.startswith('_'):
+            continue
+        # Check if it's a BuildPart context manager
+        if hasattr(_obj, 'part'):
+            try:
+                # Get the part - it's a property that returns a Solid
+                _part = _obj.part
+                if _part is not None:
+                    if "{export_format}" == "stl":
+                        export_stl(_part, "{output_filepath}")
+                    elif "{export_format}" == "step":
+                        export_step(_part, "{output_filepath}")
+                    print(f"Exported: {output_filepath}")
+                    _exported = True
+                    break
+            except Exception as e:
+                print(f"Export attempt failed for {{_name}}: {{e}}")
+                continue
+    
+    if not _exported:
+        print("Warning: No BuildPart found to export")
+except Exception as e:
+    print(f"Export error: {{e}}")
+    import traceback
+    traceback.print_exc()
+'''
+        
+        # Combine cleaned code with export
+        full_code = cleaned_code + export_code
+        
         # Use ExecutionSandbox with timeout
         sandbox = ExecutionSandbox(timeout=timeout, work_dir=self.output_path)
-        result = sandbox.execute(code=code)
+        result = sandbox.execute(code=full_code)
         
         execution_time = time.time() - start_time
         logger.info(f"Code executed in {execution_time:.2f}s (success={result.success})")
