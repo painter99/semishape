@@ -1,0 +1,36 @@
+# Nastavení AI modelů pro SemiShape
+# Kimi K2.5 jako hlavní, Minimax 2.7 jako záloha
+
+hlavni_model:
+  nazev: moonshotai/kimi-k2.5
+  provider: openrouter
+  popis: Moonshot Kimi K2.5 - nejlepší poměr cena/výkon pro kódování
+  cena_vstup: 0.38
+  cena_vystup: 1.91
+  max_tokeny: 8192
+  teplota: 0.3
+  top_p: 0.95
+
+zalozni_model:
+  nazev: minimax/minimax-m2.7
+  provider: openrouter
+  popis: Minimax M2.7 - úsporná záloha, dobrý pro jednoduché modely
+  cena_vstup: 0.10
+  cena_vystup: 0.27
+  max_tokeny: 4096
+  teplota: 0.3
+  top_p: 0.95
+
+# Pravidla přepínání
+pravidla:
+  - kdyz_hlavni_nedostupny: pouzij_zalozni
+  - kdyz_tokeny_presahuji: pouzij_zalozni
+  - kdyz_chyba_pri_generovani: zkus_znovu_s_opravou
+
+# Seznam operací pro automatickou opravu chyb
+opravy:
+  "Location.*axis": "Location nepodporuje parametr 'axis', použij (x, y, z)"
+  "export_step": "Export rušíme - dělá se automaticky"
+  "export_stl": "Export rušíme - dělá se automaticky"
+  "part.part.wrapped": "Použij přímo part.part (bez .wrapped)"
+  "extrude.*Mode.SUBTRACT": "Pro výřezy použij Hole() nebo Substract()"

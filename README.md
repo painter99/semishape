@@ -1,160 +1,235 @@
-# SemiShape
+# SemiShape v0.2.0
 
-> **"Almost a shape. Mostly suggestion."**
+> **AI asistent pro generování 3D CAD modelů z textového popisu**
 
-![Status](https://img.shields.io/badge/Status-Pre--Alpha_v0.1.0-orange)
-![License](https://img.shields.io/badge/License-Apache_2.0-blue)
-![Framework](https://img.shields.io/badge/Powered_by-build123d_v0.10.0-green)
-
-SemiShape is an experimental AI-assisted co-pilot designed for the [build123d](https://github.com/gumyr/build123d) Python CAD library. It represents a practical application of my ongoing learning journey in AI Engineering and Parametric Design.
-
-## Live Access
-
-The experimental assistant is accessible directly via Google AI Studio:  
-**[Launch SemiShape on Google AI Studio](https://ai.studio/apps/drive/11MgLYenkh66Y4qcUufuT2tAvfxitxLz1?fullscreenApplet=true)**
+[![Version](https://img.shields.io/badge/Version-0.2.0-blue)](https://github.com/painter99/semishape)
+[![License](https://img.shields.io/badge/License-Apache%202.0-green)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.13-blue)](https://python.org)
 
 ---
 
-## Context and Motivation
+SemiShape je nástroj, který transformuje popis v češtině (nebo angličtině) na Python kód pro knihovnu **build123d** a vygeneruje **STL** soubor připravený pro 3D tisk.
 
-This project is a functional bridge within my self-study ecosystem, connecting two of my primary repositories:
-
-1. **AI Workshop**: Structured learning of Python foundations and Generative AI implementation.
-2. **CAD Workshop**: Transitioning from traditional GUI-based CAD to a "Code-first" approach for superior maintainability and version control.
-
-SemiShape was developed to automate the boilerplate code required in parametric modeling while strictly adhering to the engineering standards of the OCCT (Open Cascade) kernel.
-
-### Technical Genesis
-
-SemiShape was developed entirely within **Google AI Studio**. By leveraging Generative AI, I translated high-level mechanical design requirements into functional application logic. This project serves as a proof-of-concept for AI-driven software development, demonstrating how a self-taught enthusiast can build complex CAD tools by combining structured learning with advanced LLM prompting.
-
-### Future Vision
-
-As part of my broader AI Engineering roadmap, I view SemiShape as a long-term testing ground. The ultimate aspirational milestone is to move beyond basic prompting by integrating **RAG (Retrieval-Augmented Generation) via Dify**.
-
-By implementig a **Knowledge Pipeline with vectorized build123d documentation**, the assistant will be able to perform surgical retrieval of exact documentation snippets. This approach is designed to:
-
-- **Optimize context window usage** (significant token savings compared to long-context prompting).
-- **Increase code precision** by providing the LLM with real-time, authoritative documentation.
-- **Minimize hallucinations** caused by legacy training data.
-
-While this evolution represents a journey of potentially several months or years of study, it remains the "North Star" for this experiment.
-
-## Core Philosophy
-
-SemiShape operates on a "Pilot and Co-pilot" principle:
-
-| Role              | Responsibility                                                                  |
-| ----------------- | ------------------------------------------------------------------------------- |
-| **User (Pilot)**  | Defines physical intent, engineering constraints, and verifies geometry.        |
-| **AI (Co-pilot)** | Proposes code structure, handles syntax nuances, and suggests robust selectors. |
-
-## Key Technical Features
-
-- **Strict Parametrization**: All dimensions are defined as variables to ensure models are truly parametric and easily refactored.
-- **Modern Syntax Enforcement**: Prioritizes `with BuildPart()` context managers and 2D-sketch-first workflows.
-- **Selector Stability**: Recommends geometric selectors (e.g., `.sort_by(Axis.Z)`) and `Select.LAST` instead of fragile index-based selections.
-- **Workflow Integration**: Optimized for local execution and 3D visualization within VS Code using OCP CAD Viewer.
-
-## Workflow
-
-```text
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  1. Interaction │───▶│  2. Export      │───▶│  3. Validation  │───▶│  4. Iteration   │
-│  Describe intent│    │  Download ZIP   │    │  Run in VS Code │    │  Refine params  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
+**Příklad:**
+```
+"Vytvoř krychli 50mm s kulatým otvorem průměru 20mm ve středu"
+        ↓
+    [SemiShape AI]
+        ↓
+    model.stl ✅
 ```
 
-1. **Interaction**: Describe the mechanical intent. SemiShape generates or refactors the build123d script.
-2. **Integration**: Export the code or project structure.
-3. **Verification**: Execute locally in VS Code to validate geometry.
-4. **Iteration**: Refine parameters or refactor logic based on visual feedback.
+---
 
-## Local Setup
+## Co je nového ve v0.2.0
 
-**Prerequisites**: VS Code + [OCP CAD Viewer extension](https://marketplace.visualstudio.com/items?itemName=bernhard-42.ocp-cad-viewer)
+| Funkce | Popis |
+|--------|-------|
+| **🎭 Dva modely** | Kimi K2.5 (hlavní) + Minimax 2.7 (záloha) |
+| **🔧 Automatické opravy** | Detekuje a opraví běžné chyby v kódu před spuštěním |
+| **💰 Sledování nákladů** | Odhad ceny za každé generování |
+| **🛡️ Kontrola kódu** | Ověří syntaxi před spuštěním |
+| **🔄 Retry mechanismus** | Když Kimi selže, automaticky Minimax |
+
+---
+
+## Rychlý start
+
+### Instalace
 
 ```bash
-# 1. Create and activate virtual environment
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# macOS/Linux:
-source .venv/bin/activate
+# Naklonuj repozitář
+git clone git@github.com:painter99/semishape.git
+cd semishape
 
-# 2. Update pip and install core dependencies (tested with Python 3.13)
-pip install --upgrade pip
-pip install build123d ocp-vscode
+# Vytvoř virtuální prostředí
+python -m venv venv
 
-# 3. Execute the generated model
-python src/model.py
+# Linux/macOS
+source venv/bin/activate
+
+# Windows
+venv\Scripts\activate
+
+# Nainstaluj závislosti
+pip install -r requirements.txt
 ```
 
-## Project Structure in SemiShape
+### Nastavení API klíče
 
-```text
-SemiShape/
-├── src/
-│   └── model.py      # Generated build123d logic
-└── README.md
+```bash
+# Vytvoř .env soubor v rootu projektu
+echo "OPENROUTER_API_KEY=sk-or-v1-..." > .env
 ```
 
-## Best Practices and Standards
+### Použití
 
-SemiShape promotes clean "CAD-as-code" habits:
-
-### 1. Parametrization
+#### Přímo z Pythonu:
 
 ```python
-# Recommended
-WIDTH, HEIGHT = 100.0, 50.0
-# Avoid
-Box(100.0, 50.0, 10.0)
+from jadro.hlavni import SemiShape
+
+# Vytvoříme instanci
+ss = SemiShape(jazyk="cs")
+
+# Vygenerujeme model
+vysledek = ss.vygeneruj("Vytvoř kvádr 50x30x10mm")
+
+if vysledek.funguje:
+    print(f"✅ Hotovo: {vysledek.soubor_stl}")
+    print(f"💰 Cena: ${vysledek.cena_usd:.4f}")
+    print(f"🤖 Použitý model: {vysledek.pouzity_model}")
+else:
+    print(f"❌ Chyba: {vysledek.chyba}")
 ```
 
-### 2. Modern Syntax (Builder Mode)
+#### Z příkazové řádky:
 
-```python
-# Recommended
-with BuildPart() as model:
-    Box(WIDTH, HEIGHT, 10)
+```bash
+# Jednoduchý kvádr
+python -m jadro.hlavni "Vytvoř kvádr 50x30x10mm"
+
+# Složitější model s vlastním názvem
+python -m jadro.hlavni "Vytvoř držák s 4 dírami" --jmeno drzak
+
+# Anglicky
+python -m jadro.hlavni "Create a box 50x30x10mm" --jazyk en
 ```
-
-### 3. Robust Selection
-
-```python
-# Recommended (Geometric / Using Select.LAST)
-top_face = model.faces().sort_by(Axis.Z).last
-fillet(model.edges(Select.LAST), radius=2.0)
-
-# Avoid (Index-based)
-top_face = model.faces()[0]
-```
-
-## Legal and Attribution
-
-Copyright © 2026 Pavel Mareš (painter99)  
-This project is open-source under the **Apache License 2.0**.
-
-### Attribution
-
-SemiShape is powered by **build123d: A Python-based parametric CAD library**.  
-Core development by **Roger Maitland** and contributors.
-
-If you use this tool in a professional or research context, please recognize the underlying framework:
-
-> Maitland, R. (2025). _build123d: A Python-based parametric CAD library_ (v0.10.0).
-> DOI: [10.5281/zenodo.17537673](https://doi.org/10.5281/zenodo.17537673)
-
-### Disclaimer
-
-SemiShape is an **unofficial community tool**. It is **not affiliated with, sponsored by, or endorsed by** the build123d core team.
-
-**Warning**: AI-generated CAD code requires manual review. Always verify geometry and engineering constraints before manufacturing.
 
 ---
 
-## Links
+## Struktura projektu
 
-- build123d Documentation: <https://build123d.readthedocs.io/>
-- Source Framework: <https://github.com/gumyr/build123d>
+```
+semishape/
+├── jadro/                  # Hlavní logika
+│   ├── hlavni.py          # Hlavní API
+│   ├── modely/
+│   │   └── prepinac.py    # Přepínání Kimi/Minimax
+│   ├── kontrola/
+│   │   └── syntax.py      # Kontrola a oprava kódu
+│   └── ...
+│
+├── nastaveni/
+│   └── modely.yaml        # Nastavení AI modelů
+│
+├── spusteni/              # Spuštění kódu a export
+│   ├── sandbox.py         # Bezpečné spuštění
+│   └── exporter.py        # STL export
+│
+├── src/                   # Původní kód (zpětná kompatibilita)
+│   ├── generation/        # LLM, RAG
+│   ├── execution/
+│   └── rag/
+│
+├── data/                  # Dokumentace build123d (605 souborů)
+├── vystupy/               # Vygenerované STL soubory
+├── priklady/              # Ukázkové použití
+└── testy/                 # Testy
+```
+
+---
+
+## Jak to funguje
+
+### 1. Přijetí popisu
+Převezme text v češtině popisující 3D model.
+
+### 2. Výběr modelu
+1. Nejprve zkusí **Kimi K2.5** (nejlépe pro kód)
+2. Když selže → automaticky **Minimax 2.7**
+
+### 3. Kontrola a oprava
+- Ověří Python syntaxi
+- Opraví známé chyby v build123d
+- Odstraní neautorizovaný export kód
+
+### 4. Spuštění
+Spustí kód v sandboxu a vyexportuje STL.
+
+### 5. Výstup
+Vrátí cestu k STL souboru nebo chybovou zprávu.
+
+---
+
+## Modely
+
+| Model | Role | Cena (vstup/výstup) | Kdy použít |
+|-------|------|---------------------|------------|
+| **Kimi K2.5** | Hlavní | $0.38 / $1.91 per 1M | Standardní použití |
+| **Minimax 2.7** | Záloha | $0.10 / $0.27 per 1M | Když Kimi selže, jednoduché modely |
+
+---
+
+## Příklady použití
+
+### Jednoduché modely
+
+```python
+# Krychle
+ss.vygeneruj("Vytvoř krychli 50mm")
+
+# Válec
+ss.vygeneruj("Vytvoř válec průměru 30mm a výšky 50mm")
+
+# Koule
+ss.vygeneruj("Vytvoř kouli průměru 40mm")
+```
+
+### Složitější modely
+
+```python
+# Držák s otvory
+drzak = """Vytvoř montážní držák:
+- Základna 80x60mm, tloušťka 5mm
+- 4 montážní díry M3 (průměr 3.5mm) v rozích
+- Vzdálenost děr od okraje 10mm"""
+
+ss.vygeneruj(drzak, uloz_jako="drzak_m3")
+```
+
+---
+
+## Integrace s Agent Zero
+
+SemiShape lze použít jako skill v Agent Zero frameworku:
+
+1. Přidej repozitář do Agent Zero
+2. V Telegram botovi můžeš používat: `@semishape vytvoř model ...`
+
+---
+
+## Poznámky k vývoji
+
+Tento projekt vzniká jako praktická aplikace učení:
+- **Python** programování
+- **AI/ML** integrace
+- **CAD** modelování
+- **Linux** administrace
+
+---
+
+## Licence
+
+Apache 2.0 - viz [LICENSE](LICENSE)
+
+---
+
+## Autor
+
+**Pavel Mareš** ([painter99](https://github.com/painter99))
+
+---
+
+## Poděkování
+
+Projekt stojí na knihovně [build123d](https://github.com/gumyr/build123d) od Rogera Maitlanda.
+
+```
+Maitland, R. (2025). build123d: A Python-based parametric CAD library (v0.10.0).
+DOI: 10.5281/zenodo.17537673
+```
+
+---
+
+> ⚠️ **Upozornění**: AI generovaný kód vyžaduje lidskou kontrolu před výrobou.
