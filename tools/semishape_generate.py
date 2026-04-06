@@ -29,14 +29,13 @@ class SemishapeGenerate(Tool):
 
     Tool arguments (via self.args):
         description (str, required)  — text description of the desired 3D model
-        model       (str, optional)  — "auto" | "kimi" | "minimax"  (default: "auto")
-        language    (str, optional)  — "cs" | "en"                  (default: "cs")
+        language    (str, optional)  — "cs" | "en"  (default: "cs")
         execute     (bool, optional) — also execute code and export STL (default: False)
-    """
 
+    Note: Uses the AI model currently active in the Agent Zero conversation.
+    """
     async def execute(self, **kwargs) -> Response:
         description: str = self.args.get("description", "").strip()
-        model: str       = self.args.get("model", "auto")
         language: str    = self.args.get("language", self.get_config("default_language", "cs"))
         also_execute: bool = str(self.args.get("execute", "false")).lower() == "true"
 

@@ -28,68 +28,46 @@ Use the `semishape_generate` tool when the user wants to create a 3D CAD model u
 
 ### Optional Parameters
 
-**model** (string, optional, default: "auto")
-- AI model selection strategy
-- Options:
-  - `"auto"` - Automatic selection (Kimi K2.5 → Minimax fallback)
-  - `"kimi"` - Force use of Kimi K2.5 (higher quality, higher cost)
-  - `"minimax"` - Force use of Minimax 2.7 (lower cost, faster)
-
 **language** (string, optional, default: "cs")
 - Language for code comments and variable names
 - Options: `"cs"` (Czech) or `"en"` (English)
 
+## Model Selection
+
+> **Note:** SemiShape uses the AI model that is currently active in your Agent Zero conversation.
+> There is no separate model selection — the plugin inherits the model you have configured in Agent Zero.
+> To use a different model for CAD generation, change the active model in your Agent Zero settings.
+
 ## What This Tool Returns
 
-The tool returns a structured Response containing:
+The tool returns build123d Python code and (optionally) exports it to STL:
 
 ### Success Response:
 ```
-✅ CAD kód úspěšně vygenerován!
+✅ CAD code generated!
 
-**Model:** moonshotai/kimi-k2.5
-**Cena:** $0.0042
-🔧 Automatické opravy: Ano (if applicable)
-
-**STL soubor:** `/a0/usr/projects/semishape/vystupy/model_abc123.stl`
-
-**Vygenerovaný kód:**
+**Generated code:**
 ```python
 # ... complete Python code using build123d ...
 ```
+
+**STL file:** `/a0/usr/projects/semishape/output/model_name.stl`
 ```
 
 ### Error Response:
 ```
-❌ Generování selhalo
+❌ Generation failed
 
-**Chyba:** [Error description]
-**Použitý model:** minimax/minimax-m2.7
-
-**Vygenerovaný kód (před selháním):**
-```python
-# ... code that failed ...
+**Error:** [Error description]
 ```
-```
-
-### Response Fields (additional dict):
-- `success` (bool) - Whether generation and execution succeeded
-- `code` (str) - The generated Python code
-- `output_path` (str) - Path to the exported STL file (if successful)
-- `files` (list) - List of all generated files
-- `model` (str) - Which AI model was actually used
-- `cost_usd` (float) - API cost in USD
-- `was_fixed` (bool) - Whether automatic syntax fixes were applied
-- `error` (str) - Error message (if failed)
 
 ## Tool Behavior
 
-1. **Dual-Model Strategy**: Automatically tries Kimi K2.5 first, falls back to Minimax 2.7 if needed
+1. **Generates build123d Python code** from the text description using the active Agent Zero model
 2. **Syntax Validation**: Checks generated code for Python syntax errors before execution
 3. **Auto-Fix**: Applies known fixes for common build123d API mistakes
 4. **Sandbox Execution**: Runs code in isolated environment with 60-second timeout
-5. **Auto-Export**: Automatically exports to STL format upon successful execution
-6. **Cost Tracking**: Returns estimated API cost in USD
+5. **Auto-Export**: Exports to STL format upon successful execution
 
 ## Common Use Cases
 
@@ -103,38 +81,26 @@ description: "Create a 100mm cube"
 description: "Vytvoř desku 100x50x5mm se 4 dírami průměru 3mm v rozích"
 ```
 
-### Assemblies:
+### Complex Geometry:
 ```
-description: "Generate a box with a lid, both 50x30x20mm, with matching screw holes"
+description: "Vytvoř kvádr 55x35x8 mm s válcovitým otvorem uprostřed a půlkulovými nožičkami r=5mm v rozích"
 ```
-
-## Error Handling
-
-The tool handles these error types internally:
-- **API errors** - Model unavailable, rate limits
-- **Syntax errors** - Invalid Python code (with auto-fix attempts)
-- **Runtime errors** - Import errors, execution failures in sandbox
-- **Export errors** - STL generation failures
-
-Always check `response.additional["success"]` before using the generated code or output files.
 
 ## Best Practices
 
 1. **Be specific with dimensions**: "100mm cube" is better than "a cube"
 2. **Use simple language**: Avoid overly complex technical jargon
 3. **One object at a time**: For assemblies, describe the relationship clearly
-4. **Check for fixes**: If `was_fixed` is true, review the auto-corrected code
-5. **Verify output**: Always confirm the STL file was generated at `output_path`
+4. **Verify output**: Always confirm the STL file was generated at `output_path`
 
 ## Related Tools
 
-- `semishape_execute` - Run existing code or re-export to different format
+- `semishape_execute` - Run existing build123d code or re-export to different format
 - `semishape_rag_search` - Look up build123d API documentation
 
 ## Technical Notes
 
 - Uses build123d library for CAD operations
 - Runs in isolated Python sandbox with limited imports
-- Output directory: `/a0/usr/projects/semishape/vystupy/`
-- API keys loaded from Agent Zero secrets (OPENROUTER_API_KEY)
-- Config loaded from `nastaveni/modely.yaml`
+- Output directory: `/a0/usr/projects/semishape/output/`
+- API keys loaded from Agent Zero secrets (`API_KEY_OPENROUTER` or `OPENROUTER_API_KEY`)

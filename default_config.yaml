@@ -1,12 +1,15 @@
 # SemiShape CAD Generator - Default Configuration
-# These values are used unless overridden by the user in Agent Zero settings.
+# These values are used unless overridden per-project in .a0proj/plugins/semishape/config.yaml
 
 # --- API ---
+# OpenRouter API key is read from the Agent Zero environment (API_KEY_OPENROUTER or OPENROUTER_API_KEY).
+# You can override it here, but it is not recommended — use Agent Zero secrets instead.
 openrouter_api_key: ""
-default_model: "moonshotai/kimi-k2.5"
-backup_model: "minimax/minimax-01"
-temperature: 0.2
-max_tokens: 4096
+
+# --- Model ---
+# SemiShape does NOT manage model selection.
+# It uses whatever model is currently active in your Agent Zero conversation.
+# To switch models, change the active model in Agent Zero settings.
 
 # --- Paths ---
 output_dir: "/a0/usr/projects/semishape/output"
