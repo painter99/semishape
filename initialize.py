@@ -1,143 +1,83 @@
 """
-SemiShape Plugin - Initialization and Dependency Check
+SemiShape Plugin - Dependency Installer
 
-Checks Python version, required packages, and API keys.
-Returns 0 for success, 1 for failure.
+Run automatically during plugin enable (called from hooks.py install).
+Defines main() that returns 0 on success, non-zero on failure.
 """
 
-import sys
+import shutil
 import subprocess
-import importlib
+import sys
 from pathlib import Path
 
 
-# Required Python version
-MIN_PYTHON_VERSION = (3, 10)
-
-# Required packages with their import names
-REQUIRED_PACKAGES = {
-    "build123d": "build123d",
-    "chromadb": "chromadb",
-    "openai": "openai",
-    "duckduckgo-search": "duckduckgo_search",
-    "requests": "requests",
-    "pyyaml": "yaml",
-}
+def _find_python() -> str:
+    """Return path to the correct Python interpreter (prefer A0 venv)."""
+    for candidate in [
+        "/opt/venv-a0/bin/python",
+        "/a0/venv/bin/python",
+    ]:
+        if Path(candidate).exists():
+            return candidate
+    return sys.executable
 
 
-def check_python_version() -> bool:
-    """Check if Python version meets minimum requirements."""
-    version = sys.version_info[:2]
-    if version < MIN_PYTHON_VERSION:
-        print(f"[SemiShape] ✗ Python {version[0]}.{version[1]} is too old")
-        print(f"[SemiShape]   Required: Python {MIN_PYTHON_VERSION[0]}.{MIN_PYTHON_VERSION[1]}+")
-        return False
-    print(f"[SemiShape] ✓ Python {version[0]}.{version[1]} OK")
-    return True
-
-
-def check_and_install_packages() -> bool:
-    """Check and install required packages."""
-    missing = []
-    
-    # Check which packages are missing
-    for package_name, import_name in REQUIRED_PACKAGES.items():
-        try:
-            importlib.import_module(import_name)
-            print(f"[SemiShape] ✓ {package_name}")
-        except ImportError:
-            print(f"[SemiShape] ✗ {package_name} - missing")
-            missing.append(package_name)
-    
-    if not missing:
-        return True
-    
-    # Install missing packages
-    print(f"[SemiShape] Installing {len(missing)} missing package(s)...")
-    for package in missing:
-        print(f"  → Installing {package}...")
-        try:
-            subprocess.run(
-                [sys.executable, "-m", "pip", "install", "--quiet", package],
-                check=True,
-                capture_output=True
-            )
-            print(f"    ✓ {package} installed")
-        except subprocess.CalledProcessError as e:
-            print(f"    ✗ Failed to install {package}: {e}")
-            return False
-    
-    return True
-
-
-def check_api_keys() -> bool:
-    """Check if required API keys are configured."""
-    # Check for secrets.env or environment variables
-    secrets_paths = [
-        Path(".a0proj/secrets.env"),
-        Path("../.a0proj/secrets.env"),
-        Path("../../.a0proj/secrets.env"),
-    ]
-    
-    api_key = None
-    
-    # Try to load from secrets.env
-    for secrets_path in secrets_paths:
-        if secrets_path.exists():
-            with open(secrets_path) as f:
-                for line in f:
-                    if line.startswith("OPENROUTER_API_KEY="):
-                        api_key = line.strip().split("=", 1)[1].strip('"\'')
-                        break
-    
-    # Also check environment
-    if not api_key:
-        import os
-        api_key = os.environ.get("OPENROUTER_API_KEY")
-    
-    if api_key:
-        masked = api_key[:8] + "..." + api_key[-4:] if len(api_key) > 12 else "***"
-        print(f"[SemiShape] ✓ OPENROUTER_API_KEY found ({masked})")
-        return True
+def _install(pip_name: str, python: str) -> None:
+    """Install a package using uv (preferred) or pip as fallback."""
+    uv = shutil.which("uv")
+    if uv:
+        subprocess.check_call(
+            [uv, "pip", "install", pip_name, "--python", python],
+            stdout=subprocess.DEVNULL,
+        )
     else:
-        print("[SemiShape] ⚠ OPENROUTER_API_KEY not found in secrets.env or environment")
-        print("[SemiShape]   Please set OPENROUTER_API_KEY in .a0proj/secrets.env")
-        return False
+        subprocess.check_call(
+            [python, "-m", "pip", "install", "--quiet", pip_name]
+        )
 
 
 def main() -> int:
     """
-    Main initialization routine.
-    
+    Install required dependencies for SemiShape.
+
     Returns:
-        0 for success, 1 for failure
+        0 on success, 1 on failure.
     """
-    print("=" * 50)
-    print("[SemiShape] Initializing plugin...")
-    print("=" * 50)
-    
-    success = True
-    
-    # Check Python version
-    if not check_python_version():
-        success = False
-    
-    # Check and install packages
-    if not check_and_install_packages():
-        success = False
-    
-    # Check API keys (warning only - plugin can work without it for local mode)
-    api_ok = check_api_keys()
-    if not api_ok:
-        print("[SemiShape]   (Plugin can run in limited mode without API key)")
-    
-    print("=" * 50)
-    if success:
-        print("[SemiShape] ✓ Initialization complete")
-        return 0
-    else:
-        print("[SemiShape] ✗ Initialization failed")
-        return 1
+    python = _find_python()
+    print(f"[SemiShape] Using Python: {python}")
+
+    # (import_name, pip_package_spec)
+    DEPS = [
+        ("build123d",          "build123d>=0.10.0"),
+        ("chromadb",           "chromadb>=0.5.0"),
+        ("openai",             "openai>=1.0.0"),
+        ("duckduckgo_search",  "duckduckgo-search>=3.0.0"),
+        ("requests",           "requests>=2.31.0"),
+        ("yaml",               "pyyaml>=6.0"),
+        ("sentence_transformers", "sentence-transformers>=2.0.0"),
+    ]
+
+    for import_name, pip_spec in DEPS:
+        # Check if already importable
+        result = subprocess.run(
+            [python, "-c", f"import {import_name}"],
+            capture_output=True,
+        )
+        if result.returncode == 0:
+            print(f"  ✓ {pip_spec.split('>=')[0]} — already installed")
+            continue
+
+        # Install missing package
+        print(f"  → Installing {pip_spec} ...")
+        try:
+            _install(pip_spec, python)
+            print(f"  ✓ {pip_spec.split('>=')[0]} — installed")
+        except subprocess.CalledProcessError as e:
+            print(f"  ✗ Failed to install {pip_spec}: {e}")
+            return 1
+
+    print("[SemiShape] All dependencies ready.")
+    return 0
 
 
 if __name__ == "__main__":

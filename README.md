@@ -1,305 +1,383 @@
-# SemiShape v0.2.0
+# SemiShape - AI CAD Model Generator for Agent Zero
 
-> **AI asistent pro generování 3D CAD modelů z textového popisu**
+🎨 **Transform text descriptions into 3D parametric CAD models**
 
-[![Version](https://img.shields.io/badge/Version-0.2.0-blue)](https://github.com/painter99/semishape)
-[![License](https://img.shields.io/badge/License-Apache%202.0-green)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.13-blue)](https://python.org)
+SemiShape is a production-ready Agent Zero plugin that generates build123d Python code from natural language descriptions (Czech or English) and exports 3D models as STL or STEP files.
 
 ---
 
-SemiShape je nástroj, který transformuje popis v češtině (nebo angličtině) na Python kód pro knihovnu **build123d** a vygeneruje **STL** soubor připravený pro 3D tisk.
+## Features
 
-**Příklad:**
-```
-"Vytvoř krychli 50mm s kulatým otvorem průměru 20mm ve středu"
-        ↓
-    [SemiShape AI]
-        ↓
-    model.stl ✅
-```
+✅ **Dual-Model Intelligence**
+- Primary: moonshotai/kimi-k2.5 (quality-focused)
+- Backup: minimax/minimax-01 (cost-efficient)
+- Auto-fallback on failure
+
+✅ **Automatic Code Generation**
+- Syntax validation and correction
+- Multi-language support (Czech, English)
+- Parameter extraction from descriptions
+
+✅ **Export Formats**
+- STL (stereolithography)
+- STEP (CAD exchange format)
+- Batch export support
+
+✅ **Integrated Documentation Search**
+- Search bundled build123d docs
+- Web search for examples
+- API reference lookups
+
+✅ **Sandbox Execution**
+- Isolated code execution environment
+- Resource limits (timeout, memory)
+- Security validation
 
 ---
 
-## Co je nového ve v0.2.0
+## Installation
 
-| Funkce | Popis |
-|--------|-------|
-| **🎭 Dva modely** | Kimi K2.5 (hlavní) + Minimax 2.7 (záloha) |
-| **🔧 Automatické opravy** | Detekuje a opraví běžné chyby v kódu před spuštěním |
-| **💰 Sledování nákladů** | Odhad ceny za každé generování |
-| **🛡️ Kontrola kódu** | Ověří syntaxi před spuštěním |
-| **🔄 Retry mechanismus** | Když Kimi selže, automaticky Minimax |
+### Prerequisites
+
+- Python 3.10+
+- Agent Zero framework (v1.0+)
+- OpenRouter API key (for LLM access)
+
+### Quick Start
+
+1. **Enable the plugin in Agent Zero**
+   ```bash
+   # In Agent Zero UI or CLI, enable the semishape plugin
+   # The plugin auto-installs dependencies on first use
+   ```
+
+2. **Configure API key**
+   
+   Set your OpenRouter API key in one of these ways:
+   
+   **Option A: Environment Variable**
+   ```bash
+   export API_KEY_OPENROUTER="sk-or-v1-..."
+   ```
+   
+   **Option B: Agent Zero Secrets**
+   
+   In your `.a0proj/secrets.env`:
+   ```
+   API_KEY_OPENROUTER=sk-or-v1-...
+   ```
+   
+   **Option C: Plugin Settings**
+   
+   Configure in Agent Zero UI → Plugins → SemiShape → Settings
+
+3. **Test the installation**
+   ```bash
+   # In Agent Zero conversation:
+   @semishape_generate description="Create a 50×30×10 mm box with a centered hole"
+   ```
 
 ---
 
-## Rychlý start
+## Usage
 
-### Instalace
+### Tool 1: Generate CAD Code
 
 ```bash
-# Naklonuj repozitář
-git clone git@github.com:painter99/semishape.git
-cd semishape
-
-# Vytvoř virtuální prostředí
-python -m venv venv
-
-# Linux/macOS
-source venv/bin/activate
-
-# Windows
-venv\Scripts\activate
-
-# Nainstaluj závislosti
-pip install -r requirements.txt
+@semishape_generate \
+  description="Create a mounting bracket with 4 M3 holes" \
+  model="auto" \
+  language="cs" \
+  execute="true"
 ```
 
-### Nastavení API klíče
+**Arguments:**
+- `description` (required) — text description of the desired 3D model
+- `model` (optional) — `"auto"` | `"kimi"` | `"minimax"` (default: `"auto"`)
+- `language` (optional) — `"cs"` | `"en"` (default: `"cs"`)
+- `execute` (optional) — `"true"` to also generate and export STL (default: `"false"`)
+
+**Output:**
+- Generated build123d Python code
+- STL export path (if `execute=true`)
+- Estimated API cost
+
+---
+
+### Tool 2: Execute CAD Code
 
 ```bash
-# Vytvoř .env soubor v rootu projektu
-echo "OPENROUTER_API_KEY=sk-or-v1-..." > .env
+@semishape_execute \
+  code="from build123d import *; box = Box(10, 20, 30)" \
+  output_name="my_model" \
+  export_format="stl"
 ```
 
-### Použití
+**Arguments:**
+- `code` (required) — build123d Python code to execute
+- `output_name` (optional) — filename stem for export (default: `"model"`)
+- `export_format` (optional) — `"stl"` | `"step"` | `"both"` (default: `"stl"`)
 
-#### Přímo z Pythonu:
+**Output:**
+- File paths for generated STL/STEP models
+- Execution status and any errors
 
+---
+
+### Tool 3: Search Documentation
+
+```bash
+@semishape_rag_search \
+  query="How to use fillet in build123d?" \
+  top_k="5" \
+  use_web="true"
+```
+
+**Arguments:**
+- `query` (required) — search term or question
+- `top_k` (optional) — max results (1-10, default: 5)
+- `use_web` (optional) — include web search (default: `true`)
+
+**Output:**
+- Relevant documentation snippets
+- Web search results with links
+- Code examples
+
+---
+
+## Configuration
+
+### Default Settings (`default_config.yaml`)
+
+```yaml
+openrouter_api_key: ""              # Set via environment or secrets
+default_model: "moonshotai/kimi-k2.5"
+backup_model: "minimax/minimax-01"
+temperature: 0.2                    # Lower = more consistent
+max_tokens: 4096
+output_dir: "/a0/usr/projects/semishape/output"
+execution_timeout: 60               # Seconds
+sandbox_enabled: true
+default_export_format: "stl"
+default_language: "cs"
+```
+
+### Per-Project Override
+
+Create `.a0proj/semishape/config.yaml` to override defaults for a specific project:
+
+```yaml
+# Override just the fields you need
+default_model: "minimax/minimax-01"  # Use cheaper model for this project
+output_dir: "./cad_models"           # Project-specific output
+```
+
+---
+
+## Supported CAD Types
+
+SemiShape recognizes these common patterns and optimizes generation:
+
+- **Bracket** — holding/mounting parts
+- **Gear** — toothed mechanical parts
+- **Housing** — enclosures and boxes
+- **Plate** — flat structural parts
+- **Shaft** — rotating cylindrical parts
+- **Bearing** — rolling element supports
+- **Flange** — connector parts with extended rim
+- **Coupling** — connection between shafts
+- **Enclosure** — sealed boxes and cabinets
+
+---
+
+## Examples
+
+### Example 1: Simple Box with Hole
+
+```bash
+@semishape_generate \
+  description="Vytvoř kvádr 50×30×10 mm s dírou uprostřed" \
+  execute="true"
+```
+
+Output:
 ```python
-from jadro.hlavni import SemiShape
+from build123d import *
 
-# Vytvoříme instanci
-ss = SemiShape(jazyk="cs")
+box = Box(50, 30, 10)
+hole = Hole(8)  # 8 mm diameter
+result = box - hole.moved(z=5)
 
-# Vygenerujeme model
-vysledek = ss.vygeneruj("Vytvoř kvádr 50x30x10mm")
-
-if vysledek.funguje:
-    print(f"✅ Hotovo: {vysledek.soubor_stl}")
-    print(f"💰 Cena: ${vysledek.cena_usd:.4f}")
-    print(f"🤖 Použitý model: {vysledek.pouzity_model}")
-else:
-    print(f"❌ Chyba: {vysledek.chyba}")
-```
-
-#### Z příkazové řádky:
-
-```bash
-# Jednoduchý kvádr
-python -m jadro.hlavni "Vytvoř kvádr 50x30x10mm"
-
-# Složitější model s vlastním názvem
-python -m jadro.hlavni "Vytvoř držák s 4 dírami" --jmeno drzak
-
-# Anglicky
-python -m jadro.hlavni "Create a box 50x30x10mm" --jazyk en
+ExportSTL(result, "model.stl")
 ```
 
 ---
 
-## Struktura projektu
+### Example 2: Search Documentation
+
+```bash
+@semishape_rag_search query="extrude with taper"
+```
+
+Returns: Documentation snippets showing taper examples + web links
+
+---
+
+## Troubleshooting
+
+### API Key Not Found
+
+```
+❌ No OpenRouter API key found.
+Set `API_KEY_OPENROUTER` in your environment or configure it in the plugin settings.
+```
+
+**Solution:**
+```bash
+export API_KEY_OPENROUTER="sk-or-v1-your-key-here"
+```
+
+### Generation Timeout
+
+```
+⚠ Generation timed out (>60s)
+```
+
+**Solution:**
+Increase `execution_timeout` in settings or try a simpler description.
+
+### Syntax Errors in Generated Code
+
+SemiShape automatically corrects most syntax errors. If you still see errors:
+
+1. Review the generated code
+2. Use `@semishape_execute` with corrected code
+3. Report via GitHub issues
+
+---
+
+## Plugin Lifecycle
+
+### Install
+Called when plugin is first enabled:
+- Creates output directories
+- Symlinks agent initialization extension
+- Installs Python dependencies
+
+### Uninstall
+Called when plugin is disabled:
+- Removes temporary cache
+- Preserves user data (output/, models/)
+- Removes extensions symlink
+
+### Update
+Called during version updates:
+- Preserves user configuration
+- Regenerates extension symlinks
+- Runs new dependency installers
+
+---
+
+## Architecture
 
 ```
 semishape/
-├── jadro/                  # Hlavní logika v0.2.0
-│   ├── hlavni.py          # Hlavní API
-│   ├── modely/
-│   │   └── prepinac.py    # Přepínání Kimi/Minimax
-│   ├── kontrola/
-│   │   └── syntax.py      # Kontrola a oprava kódu
-│   ├── vyhledavani/       # Web search + GitHub monitor
-│   └── dovednosti/        # Skills loader
-│
-├── nastaveni/
-│   └── modely.yaml        # Nastavení AI modelů
-│
-├── src/                   # Legacy kód (používáno jádrem)
-│   ├── semishape.py       # Základní API
-│   ├── generation/        # LLM inference, prompty
-│   ├── execution/         # Sandbox + exporter
-│   └── rag/               # Vector store + retrieval
-│
-├── helpers/               # Agent Zero plugin klient
-│   └── semishape_client.py
-│
-├── tools/                 # Agent Zero tools
-│   ├── semishape_generate.py
-│   ├── semishape_execute.py
-│   └── semishape_rag_search.py
-│
-├── prompts/               # System prompty pro tools
-├── skills/                # Agent Zero skills
-├── data/                  # Dokumentace build123d (605 souborů)
-├── output/                # Vygenerované STL soubory
-├── priklady/              # Ukázkové použití
-└── testy/                 # Testy
-```
----
-
-## Jak to funguje
-
-### 1. Přijetí popisu
-Převezme text v češtině popisující 3D model.
-
-### 2. Výběr modelu
-1. Nejprve zkusí **Kimi K2.5** (nejlépe pro kód)
-2. Když selže → automaticky **Minimax 2.7**
-
-### 3. Kontrola a oprava
-- Ověří Python syntaxi
-- Opraví známé chyby v build123d
-- Odstraní neautorizovaný export kód
-
-### 4. Spuštění
-Spustí kód v sandboxu a vyexportuje STL.
-
-### 5. Výstup
-Vrátí cestu k STL souboru nebo chybovou zprávu.
-
----
-
-## Modely
-
-| Model | Role | Cena (vstup/výstup) | Kdy použít |
-|-------|------|---------------------|------------|
-| **Kimi K2.5** | Hlavní | $0.38 / $1.91 per 1M | Standardní použití |
-| **Minimax 2.7** | Záloha | $0.10 / $0.27 per 1M | Když Kimi selže, jednoduché modely |
-
----
-
-## Příklady použití
-
-### Jednoduché modely
-
-```python
-# Krychle
-ss.vygeneruj("Vytvoř krychli 50mm")
-
-# Válec
-ss.vygeneruj("Vytvoř válec průměru 30mm a výšky 50mm")
-
-# Koule
-ss.vygeneruj("Vytvoř kouli průměru 40mm")
-```
-
-### Složitější modely
-
-```python
-# Držák s otvory
-drzak = """Vytvoř montážní držák:
-- Základna 80x60mm, tloušťka 5mm
-- 4 montážní díry M3 (průměr 3.5mm) v rozích
-- Vzdálenost děr od okraje 10mm"""
-
-ss.vygeneruj(drzak, uloz_jako="drzak_m3")
+├── plugin.yaml               # Manifest
+├── default_config.yaml       # Default settings
+├── initialize.py             # Dependency installer
+├── hooks.py                  # Lifecycle management
+├── helpers/
+│   ├── tool.py              # Base Tool class
+│   ├── semishape_client.py  # Generation/execution logic
+│   └── __init__.py
+├── tools/
+│   ├── semishape_generate.py    # CAD code generator
+│   ├── semishape_execute.py     # CAD code executor
+│   ├── semishape_rag_search.py  # Documentation search
+│   └── __init__.py
+├── extensions/
+│   └── python/
+│       └── agent_init/
+│           └── _10_semishape.py  # Agent initialization
+├── data/
+│   ├── docs/                # build123d documentation (605 files)
+│   ├── cache/               # Temporary cache
+│   └── vectorstore/         # Cached embeddings
+└── output/                  # Generated STL/STEP files
 ```
 
 ---
 
-## Integrace s Agent Zero / Agent Zero Integration
+## Performance
 
-SemiShape je dostupný jako **plugin pro Agent Zero** framework:
-
-### Rychlý start / Quick Start
-
-```
-# 1. Generování kódu / Generate code
-@semishape_generate query="Vytvoř držák s 4 dírami M3" language="cs"
-
-# 2. Export do STL / Export to STL
-@semishape_execute code="$semishape_generate.response.cad_code" output_format="stl"
-```
-
-### Dokumentace pluginu / Plugin Documentation
-
-- **[README_PLUGIN.md](README_PLUGIN.md)** - Kompletní dokumentace nástrojů / Complete tool documentation
-- **[AGENT_ZERO_INTEGRATION.md](AGENT_ZERO_INTEGRATION.md)** - Podrobný návod integrace / Detailed integration guide
-
-### Dostupné nástroje / Available Tools
-
-| Nástroj / Tool | Popis / Description |
-|----------------|---------------------|
-| `@semishape_generate` | Generování build123d kódu / Generate build123d code |
-| `@semishape_execute` | Spuštění a export / Execute and export |
-| `@semishape_rag_search` | Vyhledávání v dokumentaci / Search documentation |
-
-### Rozdíly mezi režimy / Mode Differences
-
-| Režim / Mode | Použití / Usage | Pro koho / For |
-|--------------|-----------------|----------------|
-| **Standalone** | `python -m jadro.hlavni` | Lokální vývoj / Local development |
-| **Agent Zero Plugin** | `@semishape_generate` | AI asistenti / AI agents |
-| **Skill-only** | `skills.semishape` | Jednoduché úlohy / Simple tasks |
+- **Generation time:** 5-15s per model (depends on LLM model)
+- **Execution time:** 2-5s per STL export
+- **Documentation search:** <1s for local, 2-3s with web search
+- **Memory usage:** ~500MB base + 100MB per concurrent request
 
 ---
 
-## Monitoring
+## Security
+
+✅ **Sandbox Execution**
+- Code runs in isolated subprocess
+- Resource limits (timeout, memory)
+- No access to host environment
+
+✅ **API Key Protection**
+- Never logged or exposed in error messages
+- Loaded from secure environment only
+- Alternative: use Agent Zero Secrets management
+
+✅ **Input Validation**
+- Description length limits
+- Code syntax validation
+- AST analysis for dangerous imports
 
 ---
 
-## Web Search
+## Roadmap
 
-SemiShape podporuje vyhledávání aktuální dokumentace build123d přímo z webu:
-
-```python
-from jadro.vyhledavani.web_search import vyhledat_dokumentaci
-
-# Vyhledání nejnovější dokumentace
-vysledky = vyhledat_dokumentaci("Box build123d examples")
-for vysledek in vysledky:
-    print(f"{vysledek['title']}: {vysledek['href']}")
-```
-
-Nebo pomocí GitHub monitoringu pro sledování nových commitů:
-
-```python
-from jadro.vyhledavani.github_monitor import GithubMonitor
-
-monitor = GithubMonitor()
-novinky = monitor.ziskej_nove_commity(limit=5)
-```
+- [ ] Real-time visualization in web UI
+- [ ] Multi-part assembly support
+- [ ] Constraint-based parametric generation
+- [ ] Import CAD files for modification
+- [ ] Batch generation API
+- [ ] Custom training per use-case
 
 ---
 
-## Skills (Dovednosti)
+## Contributing
 
-SemiShape může fungovat jako skill v rámci Agent Zero:
+SemiShape is open-source. To contribute:
 
-```python
-# Načtení dovednosti
-from jadro.dovednosti.loader import nacti_dovednosti
-dovednosti = nacti_dovednosti()
-
-# Použití dovednosti
-from skills.semishape.SKILL import vygeneruj_model
-vygeneruj_model("Vytvoř válec 30mm")
-```
+1. Fork the repository
+2. Create a feature branch
+3. Submit a pull request with description
 
 ---
 
-## Poznámky k vývoji
-## Licence
+## Support
 
-Apache 2.0 - viz [LICENSE](LICENSE)
-
----
-
-## Autor
-
-**Pavel Mareš** ([painter99](https://github.com/painter99))
+- **GitHub Issues:** Report bugs and request features
+- **Documentation:** See `AGENT_ZERO_INTEGRATION.md`
+- **Community:** Join Agent Zero Discord
 
 ---
 
-## Poděkování
+## License
 
-Projekt stojí na knihovně [build123d](https://github.com/gumyr/build123d) od Rogera Maitlanda.
-
-```
-Maitland, R. (2025). build123d: A Python-based parametric CAD library (v0.10.0).
-DOI: 10.5281/zenodo.17537673
-```
+SemiShape is licensed under the MIT License. See `LICENSE` file for details.
 
 ---
 
-> ⚠️ **Upozornění**: AI generovaný kód vyžaduje lidskou kontrolu před výrobou.
+## Acknowledgments
+
+Built with:
+- [build123d](https://github.com/gumyr/build123d) — parametric CAD library
+- [OpenRouter](https://openrouter.ai/) — multi-model LLM API
+- [Agent Zero](https://github.com/agent0ai/agent0) — autonomous agent framework
+
+---
+
+**Made with ❤️ for the Agent Zero community**

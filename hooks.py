@@ -1,127 +1,128 @@
 """
-SemiShape Plugin - Lifecycle Management
+SemiShape Plugin - Lifecycle Hooks
 
-Handles plugin installation, uninstallation, and updates for Agent Zero integration.
-All functions return True on success, False on failure.
+Called by Agent Zero framework during plugin lifecycle events.
+All functions accept **kwargs for forward compatibility.
 """
 
 import os
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
+# Paths
+PLUGIN_DIR = Path(__file__).parent
+A0_ROOT = Path("/a0")
+SKILLS_DST = A0_ROOT / "usr" / "skills"
+EXTENSIONS_DST = A0_ROOT / "extensions" / "python" / "agent_init"
 
-def install(project_path: str) -> bool:
+# Extension source (inside plugin)
+AGENT_INIT_SRC = PLUGIN_DIR / "extensions" / "python" / "agent_init" / "_10_semishape.py"
+AGENT_INIT_DST = EXTENSIONS_DST / "_10_semishape.py"
+
+
+def install(**kwargs):
     """
-    Install plugin - create necessary directories and setup.
-    
-    Called when plugin is first enabled for a project.
-    
-    Args:
-        project_path: Root path of the project where plugin is installed
-        
-    Returns:
-        bool: True if installation successful, False otherwise
+    Called after plugin is enabled. Creates directories, symlinks extensions, copies skills.
     """
+    print("[SemiShape] Running install hook...")
+
+    # 1. Create required directories
+    for d in [
+        PLUGIN_DIR / "output",
+        PLUGIN_DIR / "data" / "cache",
+        PLUGIN_DIR / "data" / "vectorstore",
+        PLUGIN_DIR / "data" / "logs",
+    ]:
+        d.mkdir(parents=True, exist_ok=True)
+
+    # 2. Create .gitkeep sentinels
+    for d in [PLUGIN_DIR / "output", PLUGIN_DIR / "data" / "logs"]:
+        sentinel = d / ".gitkeep"
+        if not sentinel.exists():
+            sentinel.touch()
+
+    # 3. Symlink agent_init extension → /a0/extensions/python/agent_init/
+    EXTENSIONS_DST.mkdir(parents=True, exist_ok=True)
+    if AGENT_INIT_SRC.exists() and not AGENT_INIT_DST.exists():
+        AGENT_INIT_DST.symlink_to(AGENT_INIT_SRC)
+        print(f"  ✓ Extension symlinked: {AGENT_INIT_DST.name}")
+
+    # 4. Copy skill to /a0/usr/skills/
+    skill_src = PLUGIN_DIR / "skills" / "semishape"
+    skill_dst = SKILLS_DST / "semishape"
+    if skill_src.is_dir():
+        skill_dst.mkdir(parents=True, exist_ok=True)
+        for f in skill_src.iterdir():
+            if f.is_file():
+                shutil.copy2(str(f), str(skill_dst / f.name))
+        print(f"  ✓ Skill copied: {skill_dst}")
+
+    # 5. Run dependency installer
+    init_script = PLUGIN_DIR / "initialize.py"
+    python = _find_python()
     try:
-        print("[SemiShape] Installing plugin...")
-        
-        # Create directory structure
-        dirs_to_create = [
-            "data/cache",
-            "data/vectorstore",
-            "data/logs",
-            "output",
-            "helpers",
-            "tools",
-            "prompts"
-        ]
-        
-        for dir_path in dirs_to_create:
-            full_path = Path(project_path) / dir_path
-            full_path.mkdir(parents=True, exist_ok=True)
-            print(f"  ✓ Created: {dir_path}")
-        
-        # Create .gitkeep files in empty dirs
-        for dir_path in ["output", "data/logs"]:
-            gitkeep = Path(project_path) / dir_path / ".gitkeep"
-            if not gitkeep.exists():
-                gitkeep.touch()
-        
-        print("[SemiShape] Installation complete!")
-        return True
-        
-    except Exception as e:
-        print(f"[SemiShape] Installation failed: {e}")
-        return False
+        subprocess.run([python, str(init_script)], check=True)
+        print("  ✓ Dependencies installed")
+    except subprocess.CalledProcessError as e:
+        print(f"  ⚠ Dependency install returned non-zero: {e}")
+
+    print("[SemiShape] Install complete.")
 
 
-def uninstall(project_path: str) -> bool:
+def uninstall(**kwargs):
     """
-    Uninstall plugin - cleanup resources.
-    
-    Called when plugin is disabled or removed from project.
-    Preserves user data (output/, data/vectorstore/) by default.
-    
-    Args:
-        project_path: Root path of the project
-        
-    Returns:
-        bool: True if uninstallation successful, False otherwise
+    Called when plugin is disabled or removed. Removes extensions and skills symlinks.
+    User data (output/, data/vectorstore/) is preserved.
     """
-    try:
-        print("[SemiShape] Uninstalling plugin...")
-        
-        # Remove cache (temporary data only)
-        cache_path = Path(project_path) / "data" / "cache"
-        if cache_path.exists():
-            shutil.rmtree(cache_path)
-            print("  ✓ Removed: data/cache")
-        
-        # Note: vectorstore and output are preserved for user data safety
-        print("[SemiShape] Note: Preserved user data in data/vectorstore/ and output/")
-        print("[SemiShape] Uninstallation complete!")
-        return True
-        
-    except Exception as e:
-        print(f"[SemiShape] Uninstallation failed: {e}")
-        return False
+    print("[SemiShape] Running uninstall hook...")
+
+    # Remove extension symlink
+    if AGENT_INIT_DST.is_symlink():
+        AGENT_INIT_DST.unlink()
+        print(f"  ✓ Removed extension symlink: {AGENT_INIT_DST.name}")
+
+    # Remove skill copy
+    skill_dst = SKILLS_DST / "semishape"
+    if skill_dst.is_dir():
+        shutil.rmtree(str(skill_dst))
+        print(f"  ✓ Removed skill: {skill_dst}")
+
+    # Remove cache only (preserve user output and vectorstore)
+    cache = PLUGIN_DIR / "data" / "cache"
+    if cache.exists():
+        shutil.rmtree(str(cache))
+        print("  ✓ Removed data/cache")
+
+    print("[SemiShape] Uninstall complete. User data preserved in output/ and data/vectorstore/.")
 
 
-def update(project_path: str, from_version: str, to_version: str) -> bool:
+def pre_update(**kwargs):
     """
-    Update plugin - handle migration between versions.
-    
-    Called when plugin is updated to new version.
-    
-    Args:
-        project_path: Root path of the project
-        from_version: Current installed version
-        to_version: Target version to update to
-        
-    Returns:
-        bool: True if update successful, False otherwise
+    Called before plugin code is updated. Preserve user configuration and data.
     """
-    try:
-        print(f"[SemiShape] Updating from {from_version} to {to_version}...")
-        
-        # Version-specific migrations
-        if from_version.startswith("0.1") and to_version.startswith("0.2"):
-            # Migration from v0.1 to v0.2
-            print("  → Migrating to v0.2 structure...")
-            
-            # Ensure new directories exist
-            new_dirs = ["helpers", "tools", "prompts"]
-            for dir_name in new_dirs:
-                dir_path = Path(project_path) / dir_name
-                dir_path.mkdir(exist_ok=True)
-                print(f"    ✓ Ensured: {dir_name}/")
-        
-        # Ensure all standard directories exist
-        install(project_path)
-        
-        print(f"[SemiShape] Update to {to_version} complete!")
-        return True
-        
-    except Exception as e:
-        print(f"[SemiShape] Update failed: {e}")
-        return False
+    print("[SemiShape] Running pre_update hook...")
+
+    # Preserve user config if it exists
+    user_config = PLUGIN_DIR / "default_config.yaml"
+    if user_config.exists():
+        print("  ✓ User configuration will be preserved during update.")
+
+    # Remove stale extension symlink so install() re-creates it fresh
+    if AGENT_INIT_DST.is_symlink():
+        AGENT_INIT_DST.unlink()
+        print("  ✓ Removed stale extension symlink (will be re-created after update)")
+
+    print("[SemiShape] Pre-update complete.")
+
+
+def _find_python() -> str:
+    """Return path to the correct Python interpreter (prefer A0 venv)."""
+    for candidate in [
+        "/opt/venv-a0/bin/python",
+        "/a0/venv/bin/python",
+    ]:
+        if Path(candidate).exists():
+            return candidate
+    return sys.executable

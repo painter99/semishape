@@ -1,209 +1,131 @@
-"""SemiShape RAG Search Tool - Tool pro vyhledávání v build123d dokumentaci.
+"""
+SemiShape - Documentation Search Tool
 
-Tento tool vyhledává v lokální build123d dokumentaci pomocí RAG
-(Retrieval-Augmented Generation) a volitelně také na webu.
+Searches the bundled build123d documentation for information about
+API usage, examples, and troubleshooting.
 
-Použití v Agent Zero:
-    Agent použije tento tool když uživatel potřebuje najít informace
-    o build123d API, příklady použití, nebo řešení problémů.
-    Např.: "Jak funguje fillet v build123d?"
+Usage by the agent:
+    When the user asks about build123d API, e.g.:
+    "How does fillet work in build123d?"
+    "Show me an example of extrude with taper"
 """
 
 import sys
 from pathlib import Path
 
-# Přidáme project root do path
+# Ensure project root is importable
 PROJECT_ROOT = Path(__file__).parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# Importujeme base Tool class z Agent Zero nebo vytvoříme fallback
-try:
-    sys.path.insert(0, "/a0")
-    from helpers.tool import Tool, Response
-except ImportError:
-    # Fallback pro vývoj/testování mimo Agent Zero
-    from dataclasses import dataclass
-    from abc import abstractmethod, ABC
-    
-    @dataclass
-    class Response:
-        message: str
-        break_loop: bool
-        additional: dict = None
-        
-        def __post_init__(self):
-            if self.additional is None:
-                self.additional = {}
-    
-    class Tool(ABC):
-        def __init__(self, agent=None, name="", method=None, args=None, 
-                     message="", loop_data=None, **kwargs):
-            self.agent = agent
-            self.name = name
-            self.method = method
-            self.args = args or {}
-            self.message = message
-            self.loop_data = loop_data
-            self.progress = ""
-        
-        @abstractmethod
-        async def execute(self, **kwargs) -> Response:
-            pass
-        
-        async def set_progress(self, content):
-            self.progress = content or ""
-        
-        async def before_execution(self, **kwargs):
-            pass
-        
-        async def after_execution(self, response, **kwargs):
-            pass
+from helpers.tool import Tool, Response
 
-# Importujeme náš SemiShape client
-from helpers.semishape_client import SemiShapeClient, Result
+# Documentation root (bundled with the plugin)
+DOCS_ROOT = PROJECT_ROOT / "data" / "docs"
+
 
 class SemishapeRagSearch(Tool):
-    """Tool pro vyhledávání v build123d dokumentaci pomocí RAG.
-    
-    Tento tool umožňuje vyhledávat v lokální build123d dokumentaci
-    pomocí vektorového vyhledávání (RAG) a volitelně také na webu.
-    
-    Použití:
-        - Když uživatel potřebuje informace o build123d API
-        - Pro nalezení příkladů použití funkcí
-        - Pro řešení problémů s kódem
-        - Pro zjištění správné syntaxe
-    
-    Parametry:
-        query: Vyhledávací dotaz (povinné)
-        top_k: Počet vrácených výsledků (volitelné, default 5, max 10)
-        use_web: Použít také webové vyhledávání (volitelné, default True)
-    
-    Vrací:
-        Response s nalezenou dokumentací, včetně zdrojů a relevance score.
     """
-    
-    async def execute(
-        self,
-        query: str,
-        top_k: int = 5,
-        use_web: bool = True,
-    ) -> Response:
-        """Vyhledá v build123d dokumentaci.
-        
-        Args:
-            query: Vyhledávací dotaz (např. "Jak použít fillet?")
-            top_k: Počet vrácených výsledků (1-10)
-            use_web: True = použít také DuckDuckGo web search
-        
-        Returns:
-            Response objekt s message obsahujícím nalezenou dokumentaci
-        """
-        try:
-            # Validace vstupů
-            if not query or not query.strip():
-                return Response(
-                    message="❌ Chyba: Vyhledávací dotaz nesmí být prázdný.",
-                    break_loop=False,
-                    additional={"error": "empty_query"}
-                )
-            
-            # Omezení top_k
-            top_k = max(1, min(top_k, 10))  # Clamp mezi 1 a 10
-            
-            # Inicializujeme klienta
-            client = SemiShapeClient(
-                language="cs",
-                output_dir="/a0/usr/projects/semishape/vystupy",
-                track_metrics=False,  # Pro RAG není potřeba
-            )
-            
-            # Vyhledáme
-            await self.set_progress(f"🔍 Vyhledávám v dokumentaci... (top_k={top_k})")
-            
-            result: Result = await client.search_rag(
-                query=query,
-                top_k=top_k,
-                use_web_search=use_web,
-            )
-            
-            # Sestavíme odpověď
-            if result.success:
-                message_parts = [
-                    f"📚 **Nalezené dokumentace pro:** \"{query}\"",
-                    "",
-                ]
-                
-                # Přidáme hlavní obsah
-                if result.explanation:
-                    message_parts.append(result.explanation)
-                else:
-                    message_parts.append("Žádné výsledky nenalezeny.")
-                
-                # Přidáme metadata
-                metadata = result.metadata or {}
-                doc_count = metadata.get("document_count", 0)
-                
-                message_parts.extend([
-                    "",
-                    f"**Nalezeno dokumentů:** {doc_count}",
-                ])
-                
-                # Přidáme webové výsledky pokud jsou
-                if use_web and metadata.get("web_results"):
-                    web_results = metadata["web_results"]
-                    message_parts.extend([
-                        "",
-                        "**Webové zdroje:**",
-                    ])
-                    for i, wr in enumerate(web_results[:3], 1):
-                        title = wr.get("title", "Neznámý")
-                        url = wr.get("url", "")
-                        message_parts.append(f"{i}. [{title}]({url})")
-                
-                # Přidáme RAG zdroje
-                if result.rag_sources:
-                    message_parts.extend([
-                        "",
-                        "**Lokální zdroje (RAG):**",
-                    ])
-                    for src in result.rag_sources[:5]:
-                        message_parts.append(f"- `{src}`")
-                
-                return Response(
-                    message="\n".join(message_parts),
-                    break_loop=False,
-                    additional={
-                        "success": True,
-                        "query": query,
-                        "top_k": top_k,
-                        "document_count": doc_count,
-                        "rag_sources": result.rag_sources,
-                        "web_results": metadata.get("web_results", []),
-                    }
-                )
-            else:
-                # Selhání
-                error_msg = result.error or "Neznámá chyba při vyhledávání"
-                
-                return Response(
-                    message=f"❌ **Vyhledávání selhalo**\n\n**Chyba:** {error_msg}",
-                    break_loop=False,
-                    additional={
-                        "success": False,
-                        "error": error_msg,
-                        "query": query,
-                    }
-                )
-                
-        except Exception as e:
+    Search bundled build123d documentation.
+
+    Tool arguments (via self.args):
+        query   (str, required)  — search term or question
+        top_k   (int, optional)  — max results to return (default: 5, max: 10)
+        use_web (bool, optional) — also search web for build123d info (default: true)
+    """
+
+    async def execute(self, **kwargs) -> Response:
+        query: str  = self.args.get("query", "").strip()
+        top_k: int  = min(int(self.args.get("top_k", 5)), 10)
+        use_web: bool = str(self.args.get("use_web", "true")).lower() != "false"
+
+        # --- Validate ---
+        if not query:
             return Response(
-                message=f"❌ **Chyba v toolu:** {str(e)}",
+                message="❌ Argument `query` is required and must not be empty.",
                 break_loop=False,
-                additional={
-                    "success": False,
-                    "error": str(e),
-                    "exception_type": type(e).__name__,
-                }
             )
+
+        self.set_progress(f"🔍 Searching documentation for: {query}")
+
+        local_results = await self._search_local(query, top_k)
+        web_results: list = []
+
+        if use_web:
+            self.set_progress("🌐 Searching web…")
+            web_results = await self._search_web(query)
+
+        if not local_results and not web_results:
+            return Response(
+                message=(
+                    f"📚 No results found for **\"{query}\"**.\n\n"
+                    "Try different keywords, e.g. `fillet`, `extrude`, `sketch`, `loft`."
+                ),
+                break_loop=False,
+            )
+
+        # --- Build response ---
+        parts = [f"📚 **Documentation results for:** \"{query}\"", ""]
+
+        for i, r in enumerate(local_results, 1):
+            snippet = r["snippet"][:600].strip()
+            parts += [
+                f"**{i}. {r['source']}**",
+                f"```\n{snippet}\n```",
+                "",
+            ]
+
+        if web_results:
+            parts.append("**Web sources:**")
+            for r in web_results[:3]:
+                title   = r.get("title", "")
+                url     = r.get("href") or r.get("url", "")
+                snippet = r.get("body", "")[:200]
+                parts.append(f"- [{title}]({url}): {snippet}")
+
+        return Response(message="\n".join(parts), break_loop=False)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    async def _search_local(self, query: str, top_k: int) -> list:
+        """Keyword search over bundled .rst and .py documentation files."""
+        if not DOCS_ROOT.exists():
+            return []
+
+        results = []
+        q = query.lower()
+
+        for fpath in list(DOCS_ROOT.rglob("*.rst")) + list(DOCS_ROOT.rglob("*.py")):
+            try:
+                text = fpath.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                continue
+
+            if q not in text.lower():
+                continue
+
+            idx   = text.lower().find(q)
+            start = max(0, idx - 120)
+            end   = min(len(text), idx + 500)
+
+            results.append({
+                "source":  str(fpath.relative_to(PROJECT_ROOT)),
+                "snippet": f"…{text[start:end].strip()}…",
+            })
+
+            if len(results) >= top_k:
+                break
+
+        return results
+
+    async def _search_web(self, query: str) -> list:
+        """DuckDuckGo web search for build123d information."""
+        try:
+            from duckduckgo_search import DDGS
+            with DDGS() as ddgs:
+                return list(ddgs.text(f"build123d python CAD {query}", max_results=3))
+        except Exception as exc:
+            print(f"[SemiShape:rag_search] Web search unavailable: {exc}")
+            return []

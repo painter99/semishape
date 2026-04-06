@@ -1,0 +1,20 @@
+# SemiShape CAD Generator - Default Configuration
+# These values are used unless overridden by the user in Agent Zero settings.
+
+# --- API ---
+openrouter_api_key: ""
+default_model: "moonshotai/kimi-k2.5"
+backup_model: "minimax/minimax-01"
+temperature: 0.2
+max_tokens: 4096
+
+# --- Paths ---
+output_dir: "/a0/usr/projects/semishape/output"
+
+# --- Generation ---
+execution_timeout: 60
+sandbox_enabled: true
+default_export_format: "stl"
+
+# --- Language ---
+default_language: "cs"
