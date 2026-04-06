@@ -206,7 +206,7 @@ This is a personal hobby project — contributions and issue reports are welcome
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+— see [LICENSE](./LICENSE).
 
 ---
 
