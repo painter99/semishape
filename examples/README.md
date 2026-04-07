@@ -27,7 +27,7 @@ na spodní část desky rovnou plochou a zakulacením směrem dolů" language="c
 
 ![3D model result in CAD viewer](plate_with_feet_result.png)
 
-*Final 3D model opened in CAD viewer (Soulver)*
+*Final 3D model STL opened in Bambu Studio for a 3D printing.*
 
 ### Parameters
 
