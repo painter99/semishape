@@ -121,32 +121,57 @@ class SemishapeExecute(Tool):
         export_blocks = []
         for fmt, path in output_paths.items():
             if fmt == "stl":
-                fn = "export_stl"
-            else:
-                fn = "export_step"
-
-            export_blocks.append(f'''
-# Auto-export: {fmt.upper()}
+                # STL: use OCCT mesh-first method (reliable in sandbox)
+                export_blocks.append(f'''
+# Auto-export: STL (OCCT mesh-first method)
 try:
-    from build123d import {fn} as _export_{fmt}
-    _exported_{fmt} = False
+    from OCP.BRepMesh import BRepMesh_IncrementalMesh
+    from OCP.StlAPI import StlAPI_Writer
+    import os as _os
+    _exported_stl = False
     for _name, _obj in list(locals().items()):
-        if _name.startswith('_'):
+        if _name.startswith("_"):
             continue
-        if hasattr(_obj, 'part'):
+        if hasattr(_obj, "part"):
             try:
                 _part = _obj.part
                 if _part is not None:
-                    _export_{fmt}(_part, r"{path}")
-                    print(f"Exported {fmt.upper()}: {path}")
-                    _exported_{fmt} = True
+                    BRepMesh_IncrementalMesh(_part.wrapped, 0.01).Perform()
+                    StlAPI_Writer().Write(_part.wrapped, r"{path}")
+                    if _os.path.exists(r"{path}") and _os.path.getsize(r"{path}") > 0:
+                        print(f"Exported STL: {path}")
+                        _exported_stl = True
                     break
             except Exception as _e:
-                print(f"Export attempt failed for {{_name}} ({fmt}): {{_e}}")
-    if not _exported_{fmt}:
-        print("Warning: No BuildPart found for {fmt.upper()} export")
+                print(f"STL export attempt failed for {{_name}}: {{_e}}")
+    if not _exported_stl:
+        print("Warning: No BuildPart found for STL export")
 except Exception as _e:
-    print(f"{fmt.upper()} export error: {{_e}}")
+    print(f"STL export error: {{_e}}")
+''')
+            else:  # step — build123d export_step works fine
+                export_blocks.append(f'''
+# Auto-export: STEP
+try:
+    from build123d import export_step as _export_step
+    _exported_step = False
+    for _name, _obj in list(locals().items()):
+        if _name.startswith("_"):
+            continue
+        if hasattr(_obj, "part"):
+            try:
+                _part = _obj.part
+                if _part is not None:
+                    _export_step(_part, r"{path}")
+                    print(f"Exported STEP: {path}")
+                    _exported_step = True
+                    break
+            except Exception as _e:
+                print(f"STEP export attempt failed for {{_name}}: {{_e}}")
+    if not _exported_step:
+        print("Warning: No BuildPart found for STEP export")
+except Exception as _e:
+    print(f"STEP export error: {{_e}}")
 ''')
 
         full_code = code + "\n\n" + "\n".join(export_blocks)

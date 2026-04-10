@@ -69,7 +69,85 @@ You MUST follow these rules when generating build123d code:
    - Use robust selectors: `.sort_by(Axis.Z)`, `Select.LAST`.
    - Avoid fragile index-based selections like `faces()[0]`.
    - Include proper imports.
+
+6. **CRITICAL ANTI-PATTERNS — NEVER DO THESE:**
+
+   ❌ **Never use Python built-ins as variable names:**
+   ```python
+   # WRONG — 'open' is a Python built-in!
+   with BuildSketch(Plane.XY) as sk:
+       Circle(R)
+   extrude(open, amount=H, mode=Mode.SUBTRACT)
+
+   # CORRECT — use the sketch context manager variable:
+   with BuildSketch(Plane.XY) as sk_hole:
+       Circle(R)
+   extrude(sk_hole.sketch, amount=H, mode=Mode.SUBTRACT)
+   ```
+
+   ❌ **Never nest BuildPart inside BuildPart:**
+   ```python
+   # WRONG — invalid nesting!
+   with BuildPart() as main:
+       Box(W, H, D)
+       for x, y in corners:
+           with BuildPart() as foot:   # ← INVALID NESTED BuildPart
+               Sphere(R)
+           foot.move((x, y, z))        # ← .move() does not exist
+
+   # CORRECT — use Locations() for placement:
+   with BuildPart() as main:
+       Box(W, H, D)
+   with BuildPart() as feet:
+       with Locations([(x, y, z) for x, y in corners]):
+           Sphere(R)
+   combined = main.part + feet.part    # or use add() in one context
+   ```
+
+   ❌ **Never call .move() or .translate() on a BuildPart context object:**
+   ```python
+   # WRONG:
+   foot.move((x, y, z))
+
+   # CORRECT — use Locations() BEFORE creating the geometry:
+   with Locations((x, y, z)):
+       Sphere(R)
+   ```
+
+   ❌ **Never use print() to export or display geometry:**
+   - Do NOT include any export_stl / export_step calls — export is automatic.
+
+7. **CORRECT PATTERNS FOR COMPLEX GEOMETRY:**
+
+   ✅ **Hole in a solid:**
+   ```python
+   with BuildPart() as part:
+       Box(W, H, D)
+       with BuildSketch(Plane.XY) as hole_sk:
+           Circle(HOLE_R)
+       extrude(hole_sk.sketch, both=True, amount=D, mode=Mode.SUBTRACT)
+   ```
+
+   ✅ **Multiple identical features at corners:**
+   ```python
+   OX = W / 2 - FOOT_R
+   OY = H / 2 - FOOT_R
+   corner_positions = [(sx, sy, -D/2) for sx in (-OX, OX) for sy in (-OY, OY)]
+   with BuildPart() as part:
+       Box(W, H, D)
+       with Locations(*corner_positions):
+           Sphere(FOOT_R)
+   ```
+
+   ✅ **Pattern along an axis:**
+   ```python
+   with BuildPart() as part:
+       Box(W, H, D)
+       with GridLocations(PITCH_X, PITCH_Y, COLS, ROWS):
+           Hole(radius=HOLE_R, depth=D)
+   ```
 """
+
 
 
 # =============================================================================

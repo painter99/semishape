@@ -163,20 +163,24 @@ class SemishapeGenerate(Tool):
 
         export_snippet = f'''
 
-# Auto-generated export
+# Auto-generated export (OCCT mesh-first method — reliable in sandbox)
 try:
-    from build123d import export_stl as _export_stl
+    from OCP.BRepMesh import BRepMesh_IncrementalMesh
+    from OCP.StlAPI import StlAPI_Writer
+    import os as _os
     _exported = False
     for _name, _obj in list(locals().items()):
-        if _name.startswith('_'):
+        if _name.startswith("_"):
             continue
-        if hasattr(_obj, 'part'):
+        if hasattr(_obj, "part"):
             try:
                 _part = _obj.part
                 if _part is not None:
-                    _export_stl(_part, r"{stl_path}")
-                    print(f"Exported: {stl_path}")
-                    _exported = True
+                    BRepMesh_IncrementalMesh(_part.wrapped, 0.01).Perform()
+                    StlAPI_Writer().Write(_part.wrapped, r"{stl_path}")
+                    if _os.path.exists(r"{stl_path}") and _os.path.getsize(r"{stl_path}") > 0:
+                        print(f"Exported: {stl_path}")
+                        _exported = True
                     break
             except Exception as _e:
                 print(f"Export attempt failed for {{_name}}: {{_e}}")
