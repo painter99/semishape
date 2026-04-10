@@ -11,14 +11,26 @@ Usage by the agent:
 """
 
 import sys
+import importlib.util as _ilu
 from pathlib import Path
 
-# Ensure project root is importable
+# Resolve project root
 PROJECT_ROOT = Path(__file__).parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from helpers.tool import Tool, Response
+# Force-load SemiShape's own helpers/tool.py using absolute path.
+# This bypasses Python's module cache, which would otherwise return
+# Agent Zero's cached helpers.tool (which has a different API and
+# lacks get_config() — causing AttributeError at runtime).
+_tool_spec = _ilu.spec_from_file_location(
+    "semishape_helpers_tool",
+    PROJECT_ROOT / "helpers" / "tool.py",
+)
+_tool_mod = _ilu.module_from_spec(_tool_spec)
+_tool_spec.loader.exec_module(_tool_mod)
+Tool = _tool_mod.Tool
+Response = _tool_mod.Response
 
 # Documentation root (bundled with the plugin)
 DOCS_ROOT = PROJECT_ROOT / "data" / "docs"
