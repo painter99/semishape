@@ -21,7 +21,7 @@ na spodní část desky rovnou plochou a zakulacením směrem dolů" language="c
 
 ![Generation process in Agent Zero](plate_with_feet_generate.png)
 
-*Agent Zero processing the Czech description and generating build123d Python code*
+*Agent Zero processing the Czech description, generating and testing build123d Python code*
 
 ### Result
 
