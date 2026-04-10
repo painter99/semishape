@@ -211,16 +211,82 @@ except Exception as _e:
         return ""
 
     async def _get_rag_context(self, description: str) -> str:
-        """Retrieve relevant build123d documentation snippets (optional)."""
-        from src.rag.vectorstore import VectorStore
-        from src.rag.retriever import Retriever
+        """Retrieve relevant build123d documentation snippets (optional).
+
+        Strategy:
+        1. Try ChromaDB vectorstore (semantic search) if pre-built.
+        2. Fall back to fast keyword search over bundled .rst/.py docs.
+           This ensures the LLM always gets real API context even when
+           no vectorstore has been built.
+        """
         from src.generation.prompts import format_rag_context
 
+        # --- Strategy 1: vectorstore (semantic search) ---
         vs_path = PROJECT_ROOT / "data" / "vectorstore"
-        if not vs_path.exists():
+        if vs_path.exists():
+            try:
+                from src.rag.vectorstore import VectorStore
+                from src.rag.retriever import Retriever
+                store = VectorStore(vs_path)
+                retriever = Retriever(store)
+                results = retriever.retrieve(description, top_k=5)
+                if results:
+                    return format_rag_context(results, max_snippets=5)
+            except Exception:
+                pass  # Fall through to keyword search
+
+        # --- Strategy 2: keyword search over bundled docs ---
+        # Works without any pre-built index — always available.
+        docs_root = PROJECT_ROOT / "data" / "docs"
+        if not docs_root.exists():
             return ""
 
-        store = VectorStore(vs_path)
-        retriever = Retriever(store)
-        results = retriever.retrieve(description, top_k=3)
-        return format_rag_context(results, max_snippets=3)
+        # Extract meaningful CAD keywords from the description
+        import re as _re
+        # Split into tokens, keep words ≥ 4 chars (skip short filler words)
+        tokens = _re.findall(r"[a-zA-ZáčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]{4,}", description.lower())
+        # Known build123d-relevant terms get priority
+        b123d_terms = {
+            "box", "sphere", "cylinder", "cone", "torus", "wedge",
+            "extrude", "revolve", "loft", "sweep", "fillet", "chamfer",
+            "hole", "sketch", "circle", "rectangle", "polygon",
+            "buildpart", "buildsketch", "locations", "gridlocations",
+            "mode", "subtract", "intersect", "align", "plane",
+            "select", "sort", "filter", "faces", "edges", "vertices",
+            "import", "export", "step", "hemisphere",
+        }
+        priority = [t for t in tokens if t in b123d_terms]
+        rest     = [t for t in tokens if t not in b123d_terms]
+        search_terms = priority[:4] + rest[:2]  # Up to 6 terms
+        if not search_terms:
+            search_terms = tokens[:4]
+
+        results = []
+        seen_files = set()
+        for term in search_terms:
+            for fpath in list(docs_root.rglob("*.rst")) + list(docs_root.rglob("*.py")):
+                if str(fpath) in seen_files:
+                    continue
+                try:
+                    text = fpath.read_text(encoding="utf-8", errors="ignore")
+                except Exception:
+                    continue
+                if term not in text.lower():
+                    continue
+                idx   = text.lower().find(term)
+                start = max(0, idx - 100)
+                end   = min(len(text), idx + 600)
+                results.append({
+                    "source":  str(fpath.relative_to(PROJECT_ROOT)),
+                    "snippet": text[start:end].strip(),
+                    "score":   1.0,
+                })
+                seen_files.add(str(fpath))
+                if len(results) >= 5:
+                    break
+            if len(results) >= 5:
+                break
+
+        if not results:
+            return ""
+        return format_rag_context(results, max_snippets=5)
