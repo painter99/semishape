@@ -146,7 +146,57 @@ You MUST follow these rules when generating build123d code:
        with GridLocations(PITCH_X, PITCH_Y, COLS, ROWS):
            Hole(radius=HOLE_R, depth=D)
    ```
+
+8. **SPHERE AND HEMISPHERE PARAMETERS:**
+
+   build123d `Sphere` arc parameters behave as follows:
+
+   ```python
+   # WRONG — creates a FULL sphere (arc_size3 defaults to 360):
+   Sphere(radius=R, arc_size1=-90, arc_size2=90)
+
+   # CORRECT — creates a hemisphere (flat face up, dome pointing down):
+   Sphere(radius=R, arc_size1=-90, arc_size2=90, arc_size3=180)
+
+   # Also correct — creates a hemisphere:
+   Sphere(radius=R, arc_size1=0, arc_size2=90)  # upper quarter only
+   ```
+
+   Rule of thumb: `arc_size3` controls the sweep angle around the Z-axis.
+   Omitting it (or using 360) creates a full body of revolution.
+   Use `arc_size3=180` for a half-sphere cut along the XZ plane.
+
+9. **Z-AXIS CENTERING — CRITICAL for feature placement:**
+
+   build123d centers ALL primitives at the origin by default:
+
+   ```python
+   # Box(w, h, d) is centered at z=0:
+   #   bottom face → z = -d/2
+   #   top face    → z = +d/2
+   Box(55, 35, 8)
+   # → bottom at z = -4.0, top at z = +4.0
+   ```
+
+   When placing features relative to a face (e.g., feet on the bottom):
+   ```python
+   # WRONG — places hemisphere at z=0, which is INSIDE the box:
+   with Locations((x, y, 0)):
+       Sphere(R, arc_size3=180)
+
+   # CORRECT — query bounding box to find actual bottom face Z:
+   bb = part.bounding_box()          # build123d BoundingBox
+   plate_bottom_z = bb.min.Z         # = -d/2 for a centered Box
+
+   with Locations((x, y, plate_bottom_z)):
+       Sphere(R, arc_size3=180)
+   ```
+
+   Always query `.bounding_box()` when you need absolute Z positions.
+   Never hard-code face positions as 0 unless you explicitly placed the part there.
 """
+
+
 
 
 

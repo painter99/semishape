@@ -10,8 +10,7 @@ agent's system prompt so that the model can:
 This file is symlinked to /a0/extensions/python/agent_init/ by hooks.py install().
 """
 
-import os
-from pathlib import Path
+
 
 
 # ──────────────────────────────────────────────────────────
@@ -76,36 +75,16 @@ then call the tool.
 async def execute(agent, **kwargs):
     """Called by Agent Zero on every agent startup."""
 
-    # ── 1. Check API key availability ────────────────────────────────────────
-    api_key = ""
-    try:
-        from helpers import plugins
-        cfg = plugins.get_plugin_config("semishape", agent=agent) or {}
-        api_key = cfg.get("openrouter_api_key", "")
-    except Exception:
-        pass
-
-    if not api_key:
-        api_key = (
-            os.environ.get("API_KEY_OPENROUTER", "")
-            or os.environ.get("OPENROUTER_API_KEY", "")
-        )
-
-    # ── 2. Inject CAD awareness into agent system prompt ─────────────────────
+    # ── Inject CAD awareness into agent system prompt ─────────────────────────
+    # SemiShape uses the ACTIVE Agent Zero model — no separate API key needed.
     try:
         if hasattr(agent, "system_prompt") and isinstance(agent.system_prompt, str):
             if "SemiShape" not in agent.system_prompt:
                 agent.system_prompt += SEMISHAPE_SYSTEM_INJECTION
     except Exception as exc:
         print(f"[SemiShape] ⚠ Could not inject system prompt: {exc}")
+        return
 
-    # ── 3. Report status ─────────────────────────────────────────────────────
-    if api_key:
-        print("[SemiShape] ✓ Plugin ready — CAD generation available.")
-        print("[SemiShape] ℹ Quick start: /3d Create a 50×30×10 mm box")
-    else:
-        print(
-            "[SemiShape] ⚠ No API key found. "
-            "Set API_KEY_OPENROUTER in your environment or in Agent Zero secrets."
-        )
-        print("[SemiShape] ℹ Quick start once configured: /3d Create a 50×30×10 mm box")
+    # ── Report ready status ───────────────────────────────────────────────────
+    print("[SemiShape] ✓ Plugin ready — CAD generation available.")
+    print("[SemiShape] ℹ Quick start: /3d Create a 50×30×10 mm box")
