@@ -261,32 +261,57 @@ except Exception as _e:
         if not search_terms:
             search_terms = tokens[:4]
 
+        candidate_files = []
+        candidate_files += [
+            p for p in docs_root.rglob("*.py")
+            if p.name in {"general_examples.py", "objects_3d.py", "selector_example.py", "tutorial_joints.py", "rod_end.py"}
+        ]
+        candidate_files += [p for p in docs_root.rglob("*.py") if "assets/ttt" in str(p)]
+        candidate_files += [
+            p for p in docs_root.rglob("*.py")
+            if p not in candidate_files
+        ]
+        candidate_files += list(docs_root.rglob("*.rst"))
+
         results = []
         seen_files = set()
-        for term in search_terms:
-            for fpath in list(docs_root.rglob("*.rst")) + list(docs_root.rglob("*.py")):
-                if str(fpath) in seen_files:
-                    continue
-                try:
-                    text = fpath.read_text(encoding="utf-8", errors="ignore")
-                except Exception:
-                    continue
-                if term not in text.lower():
-                    continue
-                idx   = text.lower().find(term)
-                start = max(0, idx - 100)
-                end   = min(len(text), idx + 600)
-                results.append({
-                    "source":  str(fpath.relative_to(PROJECT_ROOT)),
-                    "snippet": text[start:end].strip(),
-                    "score":   1.0,
-                })
-                seen_files.add(str(fpath))
-                if len(results) >= 5:
-                    break
-            if len(results) >= 5:
-                break
+        for fpath in candidate_files:
+            path_str = str(fpath)
+            if path_str in seen_files:
+                continue
+            try:
+                file_text = fpath.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                continue
 
+            file_lower = file_text.lower()
+            matched_terms = [term for term in search_terms if term in file_lower]
+            if not matched_terms:
+                continue
+
+            best_term = max(matched_terms, key=lambda t: file_lower.count(t))
+            idx = file_lower.find(best_term)
+            start = max(0, idx - 120)
+            end = min(len(file_text), idx + 900)
+
+            score = float(len(matched_terms))
+            if fpath.suffix == ".py":
+                score += 1.5
+            if fpath.name == "general_examples.py":
+                score += 1.5
+            if "assets/ttt" in path_str:
+                score += 1.0
+            if "api_reference" in path_str:
+                score += 0.5
+
+            results.append({
+                "source": str(fpath.relative_to(PROJECT_ROOT)),
+                "snippet": file_text[start:end].strip(),
+                "score": score,
+            })
+            seen_files.add(path_str)
+
+        results = sorted(results, key=lambda r: r.get("score", 0), reverse=True)[:5]
         if not results:
             return ""
         return format_rag_context(results, max_snippets=5)
