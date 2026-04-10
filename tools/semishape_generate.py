@@ -11,6 +11,7 @@ Usage by the agent:
 """
 
 import re
+import json
 import sys
 import importlib.util as _ilu
 from pathlib import Path
@@ -107,8 +108,20 @@ class SemishapeGenerate(Tool):
             )
 
         # --- Build success message ---
-        parts = [
-            "✅ **CAD code generated.**",
+        request_manifest = self._extract_request_manifest(description)
+        code_analysis = self._analyze_generated_code(code, request_manifest)
+
+        parts = ["✅ **CAD code generated.**"]
+
+        manifest_lines = self._format_manifest(request_manifest, code_analysis)
+        if manifest_lines:
+            parts += ["", "**Parameter manifest**", ""] + manifest_lines
+
+        if code_analysis.get("warnings"):
+            parts += ["", "**Sanity check warnings**", ""]
+            parts += [f"- {w}" for w in code_analysis["warnings"]]
+
+        parts += [
             "",
             "```python",
             code,
