@@ -229,7 +229,7 @@ This is a personal hobby project — contributions and issue reports are welcome
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+Apache License 2.0 — see [LICENSE](./LICENSE).
 
 ---
 

@@ -155,3 +155,5 @@ DuckDuckGo web search.
 > ⚠️ SemiShape is an unofficial community tool — not affiliated with, sponsored by, or
 > endorsed by the build123d core team. Always verify AI-generated geometry before
 > manufacturing.
+>
+> Licensed under Apache License 2.0 — see LICENSE file in the repository.
