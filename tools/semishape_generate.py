@@ -2,15 +2,15 @@
 SemiShape - CAD Code Generator Tool
 
 Generates build123d Python code from a text description using
-a dual-model approach (primary → backup) with automatic syntax
-validation and correction.
+the currently active Agent Zero model. No separate API key needed —
+the plugin uses whatever model the user has configured in Agent Zero.
 
 Usage by the agent:
     When the user asks to create a 3D model, e.g.:
     "Create a 50×30×10 mm box with a hole in the centre"
 """
 
-import os
+import re
 import sys
 from pathlib import Path
 
@@ -20,24 +20,26 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from helpers.tool import Tool, Response
-from helpers.semishape_client import SemiShapeClient, Result
+from src.generation.prompts import get_system_prompt, Language
+from src.execution.sandbox import ExecutionSandbox
 
 
 class SemishapeGenerate(Tool):
     """
-    Generate build123d CAD code from a text description.
+    Generate build123d CAD code from a text description and export to STL.
+
+    Uses the currently active Agent Zero model — no separate model config needed.
 
     Tool arguments (via self.args):
         description (str, required)  — text description of the desired 3D model
         language    (str, optional)  — "cs" | "en"  (default: "cs")
-        execute     (bool, optional) — also execute code and export STL (default: False)
-
-    Note: Uses the AI model currently active in the Agent Zero conversation.
+        execute     (bool, optional) — also execute code and export STL (default: True)
     """
+
     async def execute(self, **kwargs) -> Response:
         description: str = self.args.get("description", "").strip()
         language: str    = self.args.get("language", self.get_config("default_language", "cs"))
-        also_execute: bool = str(self.args.get("execute", "false")).lower() == "true"
+        also_execute: bool = str(self.args.get("execute", "true")).lower() != "false"
 
         # --- Validate ---
         if not description:
@@ -47,84 +49,161 @@ class SemishapeGenerate(Tool):
             )
 
         # --- Resolve output directory ---
-        output_dir = self.get_config("output_dir", str(PROJECT_ROOT / "output"))
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        output_dir = Path(self.get_config("output_dir", str(PROJECT_ROOT / "output")))
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-        # --- Resolve API key ---
-        api_key = (
-            self.get_config("openrouter_api_key")
-            or os.environ.get("API_KEY_OPENROUTER")
-            or os.environ.get("OPENROUTER_API_KEY", "")
-        )
-        if not api_key:
-            return Response(
-                message=(
-                    "❌ No OpenRouter API key found.\n"
-                    "Set `API_KEY_OPENROUTER` in your environment "
-                    "or configure it in the plugin settings."
-                ),
-                break_loop=False,
-            )
+        # --- Build system prompt ---
+        lang = Language.CZECH if language.lower() in ("cs", "cze", "czech") else Language.ENGLISH
 
-        # --- Map model alias ---
-        model_map = {
-            "kimi":    "moonshotai/kimi-k2.5",
-            "minimax": "minimax/minimax-01",
-        }
-        primary_model = model_map.get(model, self.get_config("default_model", "moonshotai/kimi-k2.5"))
-        backup_model  = self.get_config("backup_model", "minimax/minimax-01")
-
-        self.set_progress("🎨 Generating CAD code…")
-
+        # Try to get RAG context to improve code quality
+        rag_context = ""
         try:
-            client = SemiShapeClient(
-                language=language,
-                output_dir=output_dir,
-                track_metrics=True,
-            )
+            rag_context = await self._get_rag_context(description)
+        except Exception:
+            pass  # RAG is optional — continue without it
 
-            result: Result = await client.generate(
-                description=description,
-                model=primary_model,
-                backup_model=backup_model,
-                also_execute=also_execute,
+        system_prompt = get_system_prompt(
+            language=lang,
+            rag_context=rag_context,
+            include_inference_rules=True,
+        )
+
+        self.set_progress("🎨 Generating CAD code using active model…")
+
+        # --- Call active Agent Zero model ---
+        try:
+            raw_response = await self.agent.call_utility_model(
+                system=system_prompt,
+                message=description,
             )
         except Exception as exc:
             return Response(
-                message=f"❌ Generation error: {type(exc).__name__}: {exc}",
+                message=f"❌ Model call failed: {type(exc).__name__}: {exc}",
                 break_loop=False,
             )
 
-        if not result.success:
+        # --- Parse code from response ---
+        code = self._extract_code(raw_response)
+        if not code:
             return Response(
                 message=(
-                    f"❌ Generation failed.\n\n"
-                    f"**Error:** {result.error or 'Unknown error'}"
+                    f"❌ No build123d code block found in the model response.\n\n"
+                    f"**Raw response:**\n{raw_response[:800]}"
                 ),
                 break_loop=False,
             )
 
         # --- Build success message ---
         parts = [
-            f"✅ **CAD code generated** (model: `{result.model_used}`)",
+            "✅ **CAD code generated.**",
             "",
             "```python",
-            result.code or "",
+            code,
             "```",
         ]
 
-        if also_execute and result.stl_path:
-            parts += [
-                "",
-                f"📦 **STL exported:** `{result.stl_path}`",
-            ]
-        elif also_execute:
-            parts += [
-                "",
-                "⚠️ Code generated but STL export failed — see error above.",
-            ]
-
-        if result.cost_usd:
-            parts.append(f"💰 Cost: ${result.cost_usd:.5f}")
+        # --- Optionally execute and export to STL ---
+        if also_execute:
+            self.set_progress("⚙️ Executing code and exporting STL…")
+            stl_path = self._run_and_export(code, output_dir)
+            if stl_path:
+                parts += [
+                    "",
+                    f"📦 **STL exported:** `{stl_path}`",
+                ]
+            else:
+                parts += [
+                    "",
+                    "⚠️ Code generated but STL export failed. Try `semishape_execute` with the code above.",
+                ]
 
         return Response(message="\n".join(parts), break_loop=False)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _extract_code(self, text: str) -> str:
+        """Extract the first Python code block from an LLM response."""
+        # Named code blocks (python, build123d, py)
+        named = re.findall(
+            r'```(?:python|build123d|py)\s*\n(.*?)\n```',
+            text,
+            re.DOTALL | re.IGNORECASE,
+        )
+        if named:
+            return "\n\n".join(b.strip() for b in named)
+
+        # Generic code blocks
+        generic = re.findall(r'```\s*\n(.*?)\n```', text, re.DOTALL)
+        if generic:
+            return "\n\n".join(b.strip() for b in generic)
+
+        # Fallback: treat whole response as code if it looks like Python
+        if "from build123d" in text or "import build123d" in text:
+            return text.strip()
+
+        return ""
+
+    def _run_and_export(self, code: str, output_dir: Path) -> str:
+        """Execute build123d code in sandbox and return STL path or empty string."""
+        import uuid, re
+
+        # Strip any export code models may have sneaked in
+        for pattern in [
+            r'\n*.*\.export_stl\([^)]*\)',
+            r'\n*.*\.export_step\([^)]*\)',
+            r'\n*export_stl\([^)]*\)',
+            r'\n*export_step\([^)]*\)',
+        ]:
+            code = re.sub(pattern, '', code, flags=re.IGNORECASE)
+
+        model_id = str(uuid.uuid4())[:8]
+        stl_path = output_dir / f"model_{model_id}.stl"
+
+        export_snippet = f'''
+
+# Auto-generated export
+try:
+    from build123d import export_stl as _export_stl
+    _exported = False
+    for _name, _obj in list(locals().items()):
+        if _name.startswith('_'):
+            continue
+        if hasattr(_obj, 'part'):
+            try:
+                _part = _obj.part
+                if _part is not None:
+                    _export_stl(_part, r"{stl_path}")
+                    print(f"Exported: {stl_path}")
+                    _exported = True
+                    break
+            except Exception as _e:
+                print(f"Export attempt failed for {{_name}}: {{_e}}")
+    if not _exported:
+        print("Warning: No BuildPart found to export")
+except Exception as _e:
+    print(f"Export error: {{_e}}")
+'''
+
+        sandbox = ExecutionSandbox(timeout=60, work_dir=output_dir)
+        result = sandbox.execute(code + export_snippet)
+
+        if stl_path.exists() and stl_path.stat().st_size > 0:
+            return str(stl_path)
+        return ""
+
+    async def _get_rag_context(self, description: str) -> str:
+        """Retrieve relevant build123d documentation snippets (optional)."""
+        from src.rag.vectorstore import VectorStore
+        from src.rag.retriever import Retriever
+        from src.generation.prompts import format_rag_context
+
+        vs_path = PROJECT_ROOT / "data" / "vectorstore"
+        if not vs_path.exists():
+            return ""
+
+        store = VectorStore(vs_path)
+        retriever = Retriever(store)
+        results = retriever.retrieve(description, top_k=3)
+        return format_rag_context(results, max_snippets=3)

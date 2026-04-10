@@ -2,105 +2,97 @@
 
 ## When to Use This Tool
 
-Use the `semishape_generate` tool when the user wants to create a 3D CAD model using the build123d Python library. This tool converts natural language descriptions into executable Python CAD code.
+Use `semishape_generate` when the user wants to create a 3D CAD model.
+This tool calls the **currently active Agent Zero model** to generate build123d Python code,
+then executes it in an isolated sandbox and exports an STL file.
 
-### Trigger Patterns:
+### Trigger Patterns
+
 - User asks to "create", "generate", or "model" a 3D object
 - Descriptions involving geometric shapes, mechanical parts, or assemblies
-- Phrases like: "vytvoř model", "vytvoř kvádr", "create a box", "generate CAD code", "build a bracket"
-- Requests for STL/STEP file generation from text descriptions
+- Phrases like: "create a box", "generate CAD code", "build a bracket", "vytvoř kvádr"
+- Requests for STL/STEP file generation from a text description
 
-### Examples:
-- "Vytvoř kvádr 50x30x10mm" (Create a 50x30x10mm box)
+### Examples
+
+- "Create a 50×30×10 mm box with a centred hole"
 - "Generate a mounting bracket with two holes"
-- "Model a gear with 20 teeth"
-- "Create a cylinder with a hole through the center"
+- "Vytvoř kvádr 50×30×10 mm s dírou průměru 5 mm uprostřed"
+- "Model a cylinder with a through-hole"
+
+---
 
 ## Parameters
 
-### Required Parameters
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `description` | ✅ | — | Natural language description of the model (Czech or English) |
+| `language` | ❌ | `cs` | Language for generated code comments: `cs` or `en` |
+| `execute` | ❌ | `true` | Also execute code and export STL after generation |
 
-**description** (string, required)
-- Natural language description of the desired 3D model
-- Can be in Czech or English
-- Should include dimensions, shapes, and relationships
-- Example: "Vytvoř kvádr 50x30x10mm s dírou průměru 5mm uprostřed"
-
-### Optional Parameters
-
-**language** (string, optional, default: "cs")
-- Language for code comments and variable names
-- Options: `"cs"` (Czech) or `"en"` (English)
+---
 
 ## Model Selection
 
-> **Note:** SemiShape uses the AI model that is currently active in your Agent Zero conversation.
-> There is no separate model selection — the plugin inherits the model you have configured in Agent Zero.
-> To use a different model for CAD generation, change the active model in your Agent Zero settings.
+> **SemiShape uses the AI model that is currently active in your Agent Zero conversation.**  
+> There is no separate model selection — the plugin inherits whatever model you have configured.
+> To use a different model, change the active model in Agent Zero settings.
+
+---
 
 ## What This Tool Returns
 
-The tool returns build123d Python code and (optionally) exports it to STL:
-
-### Success Response:
+### Success
 ```
-✅ CAD code generated!
+✅ CAD code generated.
 
-**Generated code:**
 ```python
-# ... complete Python code using build123d ...
+# ... complete build123d Python code ...
 ```
 
-**STL file:** `/a0/usr/projects/semishape/output/model_name.stl`
+📦 STL exported: `/a0/usr/projects/semishape/output/model_abc12345.stl`
 ```
 
-### Error Response:
+### Failure
 ```
-❌ Generation failed
+❌ No build123d code block found in the model response.
 
-**Error:** [Error description]
-```
-
-## Tool Behavior
-
-1. **Generates build123d Python code** from the text description using the active Agent Zero model
-2. **Syntax Validation**: Checks generated code for Python syntax errors before execution
-3. **Auto-Fix**: Applies known fixes for common build123d API mistakes
-4. **Sandbox Execution**: Runs code in isolated environment with 60-second timeout
-5. **Auto-Export**: Exports to STL format upon successful execution
-
-## Common Use Cases
-
-### Basic Shapes:
-```
-description: "Create a 100mm cube"
+Raw response:
+...
 ```
 
-### With Features:
-```
-description: "Vytvoř desku 100x50x5mm se 4 dírami průměru 3mm v rozích"
-```
+---
 
-### Complex Geometry:
-```
-description: "Vytvoř kvádr 55x35x8 mm s válcovitým otvorem uprostřed a půlkulovými nožičkami r=5mm v rozích"
-```
+## Tool Behaviour
 
-## Best Practices
+1. Builds a focused build123d system prompt (with CAD inference rules)
+2. Optionally retrieves relevant build123d documentation via RAG
+3. Calls `agent.call_utility_model()` with the system prompt and the user description
+4. Extracts the Python code block from the model response
+5. Strips any export code the model may have included
+6. Executes in a 60-second subprocess sandbox
+7. Detects the `BuildPart` object and exports to STL
 
-1. **Be specific with dimensions**: "100mm cube" is better than "a cube"
-2. **Use simple language**: Avoid overly complex technical jargon
-3. **One object at a time**: For assemblies, describe the relationship clearly
-4. **Verify output**: Always confirm the STL file was generated at `output_path`
+---
+
+## Tips
+
+- Be specific with dimensions: `"100 mm cube"` is better than `"a cube"`
+- For complex models, search the docs first: `semishape_rag_search`
+- If STL export fails, use `semishape_execute` with the generated code to debug
+- Generated code never includes `export_stl` — export is handled by the plugin automatically
+
+---
 
 ## Related Tools
 
-- `semishape_execute` - Run existing build123d code or re-export to different format
-- `semishape_rag_search` - Look up build123d API documentation
+- `semishape_execute` — Run existing build123d code or re-export to a different format
+- `semishape_rag_search` — Look up build123d API documentation
+
+---
 
 ## Technical Notes
 
-- Uses build123d library for CAD operations
-- Runs in isolated Python sandbox with limited imports
 - Output directory: `/a0/usr/projects/semishape/output/`
-- API keys loaded from Agent Zero secrets (`API_KEY_OPENROUTER` or `OPENROUTER_API_KEY`)
+- API key read from Agent Zero environment (`API_KEY_OPENROUTER` or `OPENROUTER_API_KEY`)
+- Execution timeout: 60 seconds (configurable in `default_config.yaml`)

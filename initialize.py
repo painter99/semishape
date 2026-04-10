@@ -1,8 +1,8 @@
 """
 SemiShape Plugin - Dependency Installer
 
-Run automatically during plugin enable (called from hooks.py install).
-Defines main() that returns 0 on success, non-zero on failure.
+Run automatically during plugin enable (called from hooks.py install()).
+Installs all Python dependencies required by SemiShape.
 """
 
 import shutil
@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 def _find_python() -> str:
-    """Return path to the correct Python interpreter (prefer A0 venv)."""
+    """Return the path to the correct Python interpreter (prefer the Agent Zero venv)."""
     for candidate in [
         "/opt/venv-a0/bin/python",
         "/a0/venv/bin/python",
@@ -48,12 +48,11 @@ def main() -> int:
 
     # (import_name, pip_package_spec)
     DEPS = [
-        ("build123d",          "build123d>=0.10.0"),
-        ("chromadb",           "chromadb>=0.5.0"),
-        ("openai",             "openai>=1.0.0"),
-        ("duckduckgo_search",  "duckduckgo-search>=3.0.0"),
-        ("requests",           "requests>=2.31.0"),
-        ("yaml",               "pyyaml>=6.0"),
+        ("build123d",             "build123d>=0.10.0"),
+        ("chromadb",              "chromadb>=0.5.0"),
+        ("duckduckgo_search",     "duckduckgo-search>=3.0.0"),
+        ("requests",              "requests>=2.31.0"),
+        ("yaml",                  "pyyaml>=6.0"),
         ("sentence_transformers", "sentence-transformers>=2.0.0"),
     ]
 

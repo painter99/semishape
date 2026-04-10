@@ -1,38 +1,19 @@
-"""Execution module for build123d code sandbox and export.
+"""Execution module for build123d code sandbox and STL/STEP export.
 
-Provides safe code execution and CAD file export capabilities.
+Provides safe subprocess-based code execution and CAD file export.
 
 Classes:
-    ExecutionSandbox: Safe execution environment for build123d code
+    ExecutionSandbox: Runs build123d code in an isolated subprocess
     ExecutionResult: Structured result from code execution
-    ModelExporter: CAD file export for build123d models
+    ModelExporter: CAD file export (STL / STEP)
     ExportResult: Structured result from export operations
 
-Functions:
-    execute_code: Quick execution with default settings
-    export_to_stl: Export part to STL format
-    export_to_step: Export part to STEP format
-    export_to_all: Export to multiple formats
-
 Example:
-    >>> from execution import ExecutionSandbox, execute_code
-    >>> 
-    >>> # Quick execution
-    >>> code = '''
-    ... from build123d import *
-    ... with BuildPart() as box:
-    ...     Box(10, 10, 10)
-    ... print(f"Volume: {box.part.volume}")
-    ... '''
-    >>> result = execute_code(code)
+    >>> from src.execution import ExecutionSandbox
+    >>> sandbox = ExecutionSandbox(timeout=60)
+    >>> result = sandbox.execute(code)
     >>> print(result.success)
     True
-    
-    >>> # With sandbox instance
-    >>> sandbox = ExecutionSandbox(timeout=30)
-    >>> result = sandbox.execute(code)
-    >>> print(result.output)
-    Volume: 1000.0
 """
 
 from .sandbox import (
@@ -51,12 +32,11 @@ from .exporter import (
 )
 
 __all__ = [
-    # Sandbox classes
+    # Sandbox
     'ExecutionSandbox',
     'ExecutionResult',
     'execute_code',
-    
-    # Exporter classes
+    # Exporter
     'ModelExporter',
     'ExportResult',
     'MultiExportResult',
@@ -64,5 +44,3 @@ __all__ = [
     'export_to_step',
     'export_to_all',
 ]
-
-__version__ = '0.1.0'
