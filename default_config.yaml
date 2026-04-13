@@ -1,23 +1,36 @@
 # SemiShape CAD Generator - Default Configuration
-# These values are used unless overridden per-project in .a0proj/plugins/semishape/config.yaml
+#
+# These values are used unless overridden per-project in:
+#   .a0proj/plugins/semishape/config.yaml
+#
+# Model selection:
+#   SemiShape does NOT manage model selection.
+#   It uses whatever model is currently active in your Agent Zero conversation.
+#   To switch models, change the active model in Agent Zero settings.
+#
+# API key:
+#   SemiShape reads the API key from the Agent Zero environment.
+#   Set API_KEY_OPENROUTER or OPENROUTER_API_KEY in your environment
+#   or via Agent Zero secrets. You can also set it below,
+#   but using Agent Zero secrets is recommended.
 
 # --- API ---
-# OpenRouter API key is read from the Agent Zero environment (API_KEY_OPENROUTER or OPENROUTER_API_KEY).
-# You can override it here, but it is not recommended — use Agent Zero secrets instead.
 openrouter_api_key: ""
 
-# --- Model ---
-# SemiShape does NOT manage model selection.
-# It uses whatever model is currently active in your Agent Zero conversation.
-# To switch models, change the active model in Agent Zero settings.
-
 # --- Paths ---
+# Directory where generated STL / STEP files are saved.
 output_dir: "/a0/usr/projects/semishape/output"
 
 # --- Generation ---
+# Maximum seconds the sandbox is allowed to run.
 execution_timeout: 60
+
+# Safety: run generated code in a subprocess (recommended).
 sandbox_enabled: true
+
+# Default export format when none is specified: stl | step
 default_export_format: "stl"
 
 # --- Language ---
+# Default language for generated code comments: cs | en
 default_language: "cs"

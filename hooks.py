@@ -1,7 +1,7 @@
 """
 SemiShape Plugin - Lifecycle Hooks
 
-Called by Agent Zero framework during plugin lifecycle events.
+Called by the Agent Zero framework during plugin lifecycle events.
 All functions accept **kwargs for forward compatibility.
 """
 
@@ -24,7 +24,8 @@ AGENT_INIT_DST = EXTENSIONS_DST / "_10_semishape.py"
 
 def install(**kwargs):
     """
-    Called after plugin is enabled. Creates directories, symlinks extensions, copies skills.
+    Called after the plugin is enabled.
+    Creates required directories, symlinks the agent-init extension, and installs dependencies.
     """
     print("[SemiShape] Running install hook...")
 
@@ -37,7 +38,7 @@ def install(**kwargs):
     ]:
         d.mkdir(parents=True, exist_ok=True)
 
-    # 2. Create .gitkeep sentinels
+    # 2. Create .gitkeep sentinels so empty dirs survive git
     for d in [PLUGIN_DIR / "output", PLUGIN_DIR / "data" / "logs"]:
         sentinel = d / ".gitkeep"
         if not sentinel.exists():
@@ -73,7 +74,8 @@ def install(**kwargs):
 
 def uninstall(**kwargs):
     """
-    Called when plugin is disabled or removed. Removes extensions and skills symlinks.
+    Called when the plugin is disabled or removed.
+    Removes the agent-init extension symlink and the copied skill.
     User data (output/, data/vectorstore/) is preserved.
     """
     print("[SemiShape] Running uninstall hook...")
@@ -100,16 +102,11 @@ def uninstall(**kwargs):
 
 def pre_update(**kwargs):
     """
-    Called before plugin code is updated. Preserve user configuration and data.
+    Called before the plugin code is updated.
+    Removes the stale extension symlink so install() can re-create it cleanly.
     """
     print("[SemiShape] Running pre_update hook...")
 
-    # Preserve user config if it exists
-    user_config = PLUGIN_DIR / "default_config.yaml"
-    if user_config.exists():
-        print("  ✓ User configuration will be preserved during update.")
-
-    # Remove stale extension symlink so install() re-creates it fresh
     if AGENT_INIT_DST.is_symlink():
         AGENT_INIT_DST.unlink()
         print("  ✓ Removed stale extension symlink (will be re-created after update)")
@@ -118,7 +115,7 @@ def pre_update(**kwargs):
 
 
 def _find_python() -> str:
-    """Return path to the correct Python interpreter (prefer A0 venv)."""
+    """Return the path to the correct Python interpreter (prefer the Agent Zero venv)."""
     for candidate in [
         "/opt/venv-a0/bin/python",
         "/a0/venv/bin/python",

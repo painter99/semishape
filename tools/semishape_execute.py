@@ -9,17 +9,30 @@ Usage by the agent:
     "Execute this code and export as STEP"
 """
 
-import os
+import re
 import sys
+import importlib.util as _ilu
 from pathlib import Path
 
-# Ensure project root is importable
+# Resolve project root
 PROJECT_ROOT = Path(__file__).parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from helpers.tool import Tool, Response
-from helpers.semishape_client import SemiShapeClient, Result
+# Force-load SemiShape's own helpers/tool.py using absolute path.
+# This bypasses Python's module cache, which would otherwise return
+# Agent Zero's cached helpers.tool (which has a different API and
+# lacks get_config() — causing AttributeError at runtime).
+_tool_spec = _ilu.spec_from_file_location(
+    "semishape_helpers_tool",
+    PROJECT_ROOT / "helpers" / "tool.py",
+)
+_tool_mod = _ilu.module_from_spec(_tool_spec)
+_tool_spec.loader.exec_module(_tool_mod)
+Tool = _tool_mod.Tool
+Response = _tool_mod.Response
+
+from src.execution.sandbox import ExecutionSandbox
 
 
 class SemishapeExecute(Tool):
@@ -29,13 +42,18 @@ class SemishapeExecute(Tool):
     Tool arguments (via self.args):
         code          (str, required)  — build123d Python code to execute
         output_name   (str, optional)  — filename stem for the export (default: "model")
-        export_format (str, optional)  — "stl" | "step" | "both"        (default: "stl")
+        export_format (str, optional)  — "stl" | "step" | "both"  (default: "stl")
     """
+
+    ALLOWED_FORMATS = {"stl", "step", "both"}
 
     async def execute(self, **kwargs) -> Response:
         code: str          = self.args.get("code", "").strip()
         output_name: str   = self.args.get("output_name", "model")
-        export_format: str = self.args.get("export_format", self.get_config("default_export_format", "stl"))
+        export_format: str = self.args.get(
+            "export_format",
+            self.get_config("default_export_format", "stl"),
+        ).lower()
 
         # --- Validate ---
         if not code:
@@ -44,52 +62,138 @@ class SemishapeExecute(Tool):
                 break_loop=False,
             )
 
-        allowed_formats = {"stl", "step", "both"}
-        if export_format not in allowed_formats:
+        if export_format not in self.ALLOWED_FORMATS:
             return Response(
-                message=f"❌ Invalid `export_format`: `{export_format}`. Use one of: {', '.join(sorted(allowed_formats))}.",
+                message=(
+                    f"❌ Invalid `export_format`: `{export_format}`. "
+                    f"Use one of: {', '.join(sorted(self.ALLOWED_FORMATS))}."
+                ),
                 break_loop=False,
             )
 
         # --- Resolve output directory ---
-        output_dir = self.get_config("output_dir", str(PROJECT_ROOT / "output"))
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        output_dir = Path(self.get_config("output_dir", str(PROJECT_ROOT / "output")))
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         self.set_progress(f"⚙️ Executing CAD code → {export_format.upper()}…")
 
-        try:
-            client = SemiShapeClient(
-                language="cs",
-                output_dir=output_dir,
-                track_metrics=False,
-            )
+        # --- Run code and export ---
+        exported_files = self._run_and_export(
+            code=code,
+            output_dir=output_dir,
+            output_name=output_name,
+            export_format=export_format,
+        )
 
-            result: Result = await client.execute_code(
-                code=code,
-                output_name=output_name,
-                export_format=export_format,
-            )
-        except Exception as exc:
-            return Response(
-                message=f"❌ Execution error: {type(exc).__name__}: {exc}",
-                break_loop=False,
-            )
-
-        if not result.success:
+        if not exported_files:
             return Response(
                 message=(
-                    f"❌ Execution failed.\n\n"
-                    f"**Error:** {result.error or 'Unknown error'}"
+                    "❌ Execution succeeded but no output file was produced.\n\n"
+                    "Make sure your code uses `with BuildPart() as part:` syntax "
+                    "so the model can be detected and exported automatically."
                 ),
                 break_loop=False,
             )
 
         # --- Build success message ---
         parts = ["✅ **CAD model exported successfully.**", ""]
-
-        if result.stl_path:
-            parts.append(f"📦 **STL:** `{result.stl_path}`")
-        if result.step_path:
-            parts.append(f"📦 **STEP:** `{result.step_path}`")
+        for path in exported_files:
+            ext = Path(path).suffix.upper().lstrip(".")
+            parts.append(f"📦 **{ext}:** `{path}`")
 
         return Response(message="\n".join(parts), break_loop=False)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _run_and_export(
+        self,
+        code: str,
+        output_dir: Path,
+        output_name: str,
+        export_format: str,
+    ) -> list:
+        """Execute code in sandbox and return list of exported file paths."""
+
+        # Strip any export code the user may have included
+        for pattern in [
+            r'\n*.*\.export_stl\([^)]*\)',
+            r'\n*.*\.export_step\([^)]*\)',
+            r'\n*export_stl\([^)]*\)',
+            r'\n*export_step\([^)]*\)',
+        ]:
+            code = re.sub(pattern, '', code, flags=re.IGNORECASE)
+
+        formats = ["stl", "step"] if export_format == "both" else [export_format]
+        output_paths = {
+            fmt: output_dir / f"{output_name}.{fmt}" for fmt in formats
+        }
+
+        # Build export snippet for each requested format
+        export_blocks = []
+        for fmt, path in output_paths.items():
+            if fmt == "stl":
+                # STL: use OCCT mesh-first method (reliable in sandbox)
+                export_blocks.append(f'''
+# Auto-export: STL (OCCT mesh-first method)
+try:
+    from OCP.BRepMesh import BRepMesh_IncrementalMesh
+    from OCP.StlAPI import StlAPI_Writer
+    import os as _os
+    _exported_stl = False
+    for _name, _obj in list(locals().items()):
+        if _name.startswith("_"):
+            continue
+        if hasattr(_obj, "part"):
+            try:
+                _part = _obj.part
+                if _part is not None:
+                    BRepMesh_IncrementalMesh(_part.wrapped, 0.01).Perform()
+                    StlAPI_Writer().Write(_part.wrapped, r"{path}")
+                    if _os.path.exists(r"{path}") and _os.path.getsize(r"{path}") > 0:
+                        print(f"Exported STL: {path}")
+                        _exported_stl = True
+                    break
+            except Exception as _e:
+                print(f"STL export attempt failed for {{_name}}: {{_e}}")
+    if not _exported_stl:
+        print("Warning: No BuildPart found for STL export")
+except Exception as _e:
+    print(f"STL export error: {{_e}}")
+''')
+            else:  # step — build123d export_step works fine
+                export_blocks.append(f'''
+# Auto-export: STEP
+try:
+    from build123d import export_step as _export_step
+    _exported_step = False
+    for _name, _obj in list(locals().items()):
+        if _name.startswith("_"):
+            continue
+        if hasattr(_obj, "part"):
+            try:
+                _part = _obj.part
+                if _part is not None:
+                    _export_step(_part, r"{path}")
+                    print(f"Exported STEP: {path}")
+                    _exported_step = True
+                    break
+            except Exception as _e:
+                print(f"STEP export attempt failed for {{_name}}: {{_e}}")
+    if not _exported_step:
+        print("Warning: No BuildPart found for STEP export")
+except Exception as _e:
+    print(f"STEP export error: {{_e}}")
+''')
+
+        full_code = code + "\n\n" + "\n".join(export_blocks)
+
+        sandbox = ExecutionSandbox(timeout=60, work_dir=output_dir)
+        sandbox.execute(full_code)
+
+        # Return paths of files that were actually created
+        return [
+            str(p) for p in output_paths.values()
+            if p.exists() and p.stat().st_size > 0
+        ]
