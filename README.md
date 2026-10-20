@@ -4,7 +4,7 @@
 
 SemiShape is a hobby project that adds AI-powered CAD generation to [Agent Zero](https://github.com/agent0ai/agent-zero). Describe what you want in plain Czech or English and get a build123d Python script and an STL file back.
 
-> ⚙️ **Status:** Personal hobby project — actively used, actively improved. Bugs may exist.
+> ⚙️ **Status:** Superseded by the spec-driven, test-verified approach in [cad-workshop]
 
 ---
 
