@@ -197,10 +197,14 @@ Try rephrasing the description with explicit dimensions. The model sometimes nee
 
 ## Contributing
 
-This is a personal hobby project — contributions and issue reports are welcome.
+This project is **archived** and read-only — issues and pull requests are
+closed. The idea lives on in
+**[cad-workshop](https://github.com/painter99/cad-workshop)**, which takes a
+different approach: a written spec, automated verification tests and human
+acceptance instead of trusting generated output.
 
-- Open an issue for bugs or ideas
-- PRs welcome, especially for build123d compatibility fixes
+If you forked this plugin and want to continue it, feel free — it is
+Apache-2.0 licensed.
 
 ---
 
